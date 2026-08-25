@@ -1,6 +1,5 @@
 package com.sprintiq.service;
 
-import com.sprintiq.entity.Role;
 import com.sprintiq.entity.User;
 import com.sprintiq.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -11,11 +10,14 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     public AuthService(UserRepository userRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     public User register(String name, String email, String password) {
@@ -30,9 +32,26 @@ public class AuthService {
                 name,
                 email,
                 encodedPassword,
-                Role.MEMBER
+                com.sprintiq.entity.Role.MEMBER
         );
 
         return userRepository.save(user);
     }
+
+    public String login(String email, String password) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("Invalid email or password"));
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new RuntimeException("Invalid email or password");
+        }
+
+        return jwtService.generateToken(user.getEmail());
+    }
+    public User findByEmail(String email) {
+    return userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+}
 }

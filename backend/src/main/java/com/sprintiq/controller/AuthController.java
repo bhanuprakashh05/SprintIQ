@@ -1,5 +1,7 @@
 package com.sprintiq.controller;
 
+import com.sprintiq.dto.LoginRequest;
+import com.sprintiq.dto.LoginResponse;
 import com.sprintiq.dto.UserResponse;
 import com.sprintiq.entity.User;
 import com.sprintiq.service.AuthService;
@@ -22,7 +24,8 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse register(@Valid @RequestBody RegisterRequest request) {
+    public UserResponse register(
+            @Valid @RequestBody RegisterRequest request) {
 
         User user = authService.register(
                 request.name(),
@@ -38,7 +41,28 @@ public class AuthController {
         );
     }
 
+    @PostMapping("/login")
+    public LoginResponse login(
+            @RequestBody LoginRequest request) {
+
+        String token = authService.login(
+                request.email(),
+                request.password()
+        );
+
+        User user = authService.findByEmail(request.email());
+
+        return new LoginResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getRole(),
+                token
+        );
+    }
+
     public record RegisterRequest(
+
             @NotBlank(message = "Name is required")
             String name,
 
@@ -49,5 +73,6 @@ public class AuthController {
             @NotBlank(message = "Password is required")
             @Size(min = 6, message = "Password must contain at least 6 characters")
             String password
-    ) {}
+    ) {
+    }
 }
