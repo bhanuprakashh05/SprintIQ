@@ -16,7 +16,11 @@ public class Task {
     @Column(length = 1000)
     private String description;
 
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TaskStatus status;
+
+    private String priority;
 
     @ManyToOne
     @JoinColumn(name = "project_id", nullable = false)
@@ -26,16 +30,23 @@ public class Task {
     @JoinColumn(name = "sprint_id")
     private Sprint sprint;
 
+    @ManyToOne
+    @JoinColumn(name = "assigned_to")
+    private User assignedTo;
+
     public Task() {
     }
 
-    public Task(String title, String description, String status,
-                Project project, Sprint sprint) {
+    public Task(String title, String description, TaskStatus status,
+                String priority, Project project, Sprint sprint,
+                User assignedTo) {
         this.title = title;
         this.description = description;
         this.status = status;
+        this.priority = priority;
         this.project = project;
         this.sprint = sprint;
+        this.assignedTo = assignedTo;
     }
 
     public Long getId() {
@@ -50,8 +61,12 @@ public class Task {
         return description;
     }
 
-    public String getStatus() {
+    public TaskStatus getStatus() {
         return status;
+    }
+
+    public String getPriority() {
+        return priority;
     }
 
     public Project getProject() {
@@ -62,6 +77,10 @@ public class Task {
         return sprint;
     }
 
+    public User getAssignedTo() {
+        return assignedTo;
+    }
+
     public void setTitle(String title) {
         this.title = title;
     }
@@ -70,8 +89,12 @@ public class Task {
         this.description = description;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(TaskStatus status) {
         this.status = status;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
     }
 
     public void setProject(Project project) {
@@ -80,5 +103,9 @@ public class Task {
 
     public void setSprint(Sprint sprint) {
         this.sprint = sprint;
+    }
+
+    public void setAssignedTo(User assignedTo) {
+        this.assignedTo = assignedTo;
     }
 }
