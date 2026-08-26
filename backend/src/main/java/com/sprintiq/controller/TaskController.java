@@ -24,7 +24,8 @@ public class TaskController {
                 request.title(),
                 request.description(),
                 request.status(),
-                request.projectId()
+                request.projectId(),
+                request.sprintId()
         );
     }
 
@@ -48,7 +49,8 @@ public class TaskController {
             String title,
             String description,
             String status,
-            Long projectId
+            Long projectId,
+            Long sprintId
     ) {
     }
 }

@@ -22,14 +22,20 @@ public class Task {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne
+    @JoinColumn(name = "sprint_id")
+    private Sprint sprint;
+
     public Task() {
     }
 
-    public Task(String title, String description, String status, Project project) {
+    public Task(String title, String description, String status,
+                Project project, Sprint sprint) {
         this.title = title;
         this.description = description;
         this.status = status;
         this.project = project;
+        this.sprint = sprint;
     }
 
     public Long getId() {
@@ -52,6 +58,10 @@ public class Task {
         return project;
     }
 
+    public Sprint getSprint() {
+        return sprint;
+    }
+
     public void setTitle(String title) {
         this.title = title;
     }
@@ -66,5 +76,9 @@ public class Task {
 
     public void setProject(Project project) {
         this.project = project;
+    }
+
+    public void setSprint(Sprint sprint) {
+        this.sprint = sprint;
     }
 }
