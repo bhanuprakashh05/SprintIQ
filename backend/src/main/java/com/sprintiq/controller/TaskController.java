@@ -42,6 +42,7 @@ public class TaskController {
 
     @GetMapping
     public List<TaskResponse> getAllTasks() {
+
         return taskService.getAllTasks()
                 .stream()
                 .map(this::toResponse)
@@ -50,12 +51,31 @@ public class TaskController {
 
     @GetMapping("/{id}")
     public TaskResponse getTask(@PathVariable Long id) {
-        return toResponse(taskService.getTask(id));
+
+        return toResponse(
+                taskService.getTask(id)
+        );
+    }
+
+    @PatchMapping("/{id}/status")
+    public TaskResponse updateTaskStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+
+        TaskStatus taskStatus = TaskStatus.valueOf(status);
+
+        Task task = taskService.updateTaskStatus(
+                id,
+                taskStatus
+        );
+
+        return toResponse(task);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTask(@PathVariable Long id) {
+
         taskService.deleteTask(id);
     }
 

@@ -43,16 +43,19 @@ public class TaskService {
             Long assignedToId) {
 
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Project not found"));
 
         Sprint sprint = sprintRepository.findById(sprintId)
-                .orElseThrow(() -> new RuntimeException("Sprint not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Sprint not found"));
 
         User assignedTo = null;
 
         if (assignedToId != null) {
             assignedTo = userRepository.findById(assignedToId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() ->
+                            new RuntimeException("User not found"));
         }
 
         Task task = new Task(
@@ -74,7 +77,21 @@ public class TaskService {
 
     public Task getTask(Long id) {
         return taskRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Task not found"));
+    }
+
+    public Task updateTaskStatus(
+            Long id,
+            TaskStatus status) {
+
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Task not found"));
+
+        task.setStatus(status);
+
+        return taskRepository.save(task);
     }
 
     public void deleteTask(Long id) {
