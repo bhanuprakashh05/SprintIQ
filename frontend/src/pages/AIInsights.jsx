@@ -26,12 +26,23 @@ function AIInsights() {
   const navigate = useNavigate()
 
   const [user, setUser] = useState({})
+
+  // All sprints returned from backend
   const [sprints, setSprints] = useState([])
-  const [selectedSprint, setSelectedSprint] = useState('2')
+
+  // Project selection
+  const [selectedProject, setSelectedProject] = useState('')
+
+  // Sprint selection
+  const [selectedSprint, setSelectedSprint] = useState('')
 
   const [prediction, setPrediction] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // ==========================================
+  // AUTH + LOAD SPRINTS
+  // ==========================================
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -41,20 +52,22 @@ function AIInsights() {
       return
     }
 
-    const storedUser = JSON.parse(
-      localStorage.getItem('user') || '{}'
-    )
+    try {
+      const storedUser = JSON.parse(
+        localStorage.getItem('user') || '{}'
+      )
 
-    setUser(storedUser)
+      setUser(storedUser)
+    } catch {
+      setUser({})
+    }
 
     fetchSprints()
   }, [navigate])
 
-  useEffect(() => {
-    if (selectedSprint) {
-      fetchPrediction(selectedSprint)
-    }
-  }, [selectedSprint])
+  // ==========================================
+  // FETCH SPRINTS
+  // ==========================================
 
   const fetchSprints = async () => {
     try {
@@ -71,12 +84,12 @@ function AIInsights() {
 
       setSprints(response.data)
 
-      if (response.data.length > 0) {
-        setSelectedSprint(
-          String(response.data[0].id)
-        )
-      }
-
+      // IMPORTANT:
+      // Do NOT automatically select a project/sprint.
+      setSelectedProject('')
+      setSelectedSprint('')
+      setPrediction(null)
+      setError('')
     } catch (error) {
       console.error('Sprint API error:', error)
 
@@ -88,11 +101,72 @@ function AIInsights() {
         localStorage.removeItem('user')
         navigate('/login')
       } else {
-        setError('Unable to load sprints')
-        setLoading(false)
+        setError('Unable to load projects and sprints')
       }
     }
   }
+
+  // ==========================================
+  // GET UNIQUE PROJECTS FROM SPRINT DATA
+  // ==========================================
+
+  const projects = Array.from(
+    new Map(
+      sprints
+        .filter((sprint) => sprint.project)
+        .map((sprint) => [
+          String(sprint.project.id),
+          sprint.project,
+        ])
+    ).values()
+  )
+
+  // ==========================================
+  // GET SPRINTS FOR SELECTED PROJECT
+  // ==========================================
+
+  const availableSprints = sprints.filter(
+    (sprint) =>
+      sprint.project &&
+      String(sprint.project.id) === String(selectedProject)
+  )
+
+  // ==========================================
+  // PROJECT CHANGE
+  // ==========================================
+
+  const handleProjectChange = (event) => {
+    const projectId = event.target.value
+
+    setSelectedProject(projectId)
+
+    // Reset sprint whenever project changes
+    setSelectedSprint('')
+    setPrediction(null)
+    setError('')
+  }
+
+  // ==========================================
+  // SPRINT CHANGE
+  // ==========================================
+
+  const handleSprintChange = (event) => {
+    const sprintId = event.target.value
+
+    setSelectedSprint(sprintId)
+    setPrediction(null)
+    setError('')
+  }
+
+  // ==========================================
+  // FETCH AI PREDICTION
+  // ==========================================
+
+  useEffect(() => {
+    if (selectedSprint) {
+      fetchPrediction(selectedSprint)
+    }
+  }, [selectedSprint])
 
   const fetchPrediction = async (sprintId) => {
     try {
@@ -112,7 +186,6 @@ function AIInsights() {
       )
 
       setPrediction(response.data)
-
     } catch (error) {
       console.error('AI prediction error:', error)
 
@@ -130,11 +203,14 @@ function AIInsights() {
       } else {
         setError('Unable to generate AI prediction')
       }
-
     } finally {
       setLoading(false)
     }
   }
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -142,6 +218,10 @@ function AIInsights() {
 
     navigate('/login')
   }
+
+  // ==========================================
+  // RISK CLASS
+  // ==========================================
 
   const getRiskClass = (risk) => {
     if (risk === 'LOW') {
@@ -155,6 +235,10 @@ function AIInsights() {
     return 'risk-high'
   }
 
+  // ==========================================
+  // RISK ICON
+  // ==========================================
+
   const getRiskIcon = (risk) => {
     if (risk === 'LOW') {
       return <ShieldCheck size={32} />
@@ -166,6 +250,10 @@ function AIInsights() {
 
     return <AlertCircle size={32} />
   }
+
+  // ==========================================
+  // RISK MESSAGE
+  // ==========================================
 
   const getRiskMessage = (risk) => {
     if (risk === 'LOW') {
@@ -179,15 +267,29 @@ function AIInsights() {
     return 'Sprint is at high risk.'
   }
 
+  // ==========================================
+  // CONFIDENCE
+  // ==========================================
+
   const confidencePercentage =
     prediction
-      ? Math.round(prediction.confidence * 100)
+      ? Math.round(
+          Number(prediction.confidence || 0) * 100
+        )
       : 0
+
+  // ==========================================
+  // SELECTED SPRINT
+  // ==========================================
 
   const selectedSprintData = sprints.find(
     (sprint) =>
       String(sprint.id) === String(selectedSprint)
   )
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="dashboard-layout">
@@ -284,6 +386,7 @@ function AIInsights() {
 
           <div>
             <h1>AI Insights</h1>
+
             <p>
               Intelligent sprint risk analysis
             </p>
@@ -298,6 +401,7 @@ function AIInsights() {
             </div>
 
             <div>
+
               <strong>
                 {user.name || 'User'}
               </strong>
@@ -305,6 +409,7 @@ function AIInsights() {
               <span>
                 {user.role || 'Member'}
               </span>
+
             </div>
 
           </div>
@@ -313,11 +418,14 @@ function AIInsights() {
 
         <section className="ai-content">
 
-          {/* HEADER */}
+          {/* ========================================
+              HEADER
+          ======================================== */}
 
           <div className="ai-page-header">
 
             <div>
+
               <span className="eyebrow">
                 ARTIFICIAL INTELLIGENCE
               </span>
@@ -330,38 +438,121 @@ function AIInsights() {
                 Use AI to understand sprint health
                 and identify potential delivery risks.
               </p>
+
             </div>
+
+            {/* ========================================
+                PROJECT + SPRINT SELECTORS
+            ======================================== */}
 
             <div className="ai-sprint-selector">
 
-              <label htmlFor="ai-sprint">
-                Analyze Sprint
+              {/* PROJECT */}
+
+              <label htmlFor="ai-project">
+                Select Project
+              </label>
+
+              <select
+                id="ai-project"
+                value={selectedProject}
+                onChange={handleProjectChange}
+              >
+
+                <option value="">
+                  Select project
+                </option>
+
+                {projects.map((project) => (
+
+                  <option
+                    key={project.id}
+                    value={project.id}
+                  >
+                    {project.name}
+                  </option>
+
+                ))}
+
+              </select>
+
+              {/* SPRINT */}
+
+              <label
+                htmlFor="ai-sprint"
+                style={{ marginTop: '12px' }}
+              >
+                Select Sprint
               </label>
 
               <select
                 id="ai-sprint"
                 value={selectedSprint}
-                onChange={(event) =>
-                  setSelectedSprint(
-                    event.target.value
-                  )
-                }
+                onChange={handleSprintChange}
+                disabled={!selectedProject}
               >
-                {sprints.map((sprint) => (
+
+                <option value="">
+                  {selectedProject
+                    ? 'Select sprint'
+                    : 'Select project first'}
+                </option>
+
+                {availableSprints.map((sprint) => (
+
                   <option
                     key={sprint.id}
                     value={sprint.id}
                   >
                     {sprint.name}
                   </option>
+
                 ))}
+
               </select>
 
             </div>
 
           </div>
 
-          {/* LOADING */}
+          {/* ========================================
+              INITIAL STATE
+          ======================================== */}
+
+          {!loading &&
+            !error &&
+            !prediction &&
+            !selectedProject && (
+
+              <div className="ai-loading">
+                <span>
+                  Select a project to begin sprint analysis.
+                </span>
+              </div>
+
+            )}
+
+          {/* ========================================
+              PROJECT SELECTED BUT NO SPRINT
+          ======================================== */}
+
+          {!loading &&
+            !error &&
+            !prediction &&
+            selectedProject &&
+            !selectedSprint && (
+
+              <div className="ai-loading">
+                <span>
+                  Select a sprint to generate AI analysis.
+                </span>
+              </div>
+
+            )}
+
+          {/* ========================================
+              LOADING
+          ======================================== */}
 
           {loading && (
 
@@ -380,7 +571,9 @@ function AIInsights() {
 
           )}
 
-          {/* ERROR */}
+          {/* ========================================
+              ERROR
+          ======================================== */}
 
           {!loading && error && (
 
@@ -390,7 +583,9 @@ function AIInsights() {
 
           )}
 
-          {/* RESULTS */}
+          {/* ========================================
+              RESULTS
+          ======================================== */}
 
           {!loading &&
             !error &&
@@ -444,7 +639,6 @@ function AIInsights() {
 
               </div>
 
-
               {/* METRICS */}
 
               <div className="ai-metrics-grid">
@@ -456,6 +650,7 @@ function AIInsights() {
                   </div>
 
                   <div>
+
                     <span>
                       Completion Rate
                     </span>
@@ -463,10 +658,10 @@ function AIInsights() {
                     <strong>
                       {prediction.completionRate}%
                     </strong>
+
                   </div>
 
                 </div>
-
 
                 <div className="ai-metric-card">
 
@@ -475,6 +670,7 @@ function AIInsights() {
                   </div>
 
                   <div>
+
                     <span>
                       Days Remaining
                     </span>
@@ -482,10 +678,10 @@ function AIInsights() {
                     <strong>
                       {prediction.daysRemaining}
                     </strong>
+
                   </div>
 
                 </div>
-
 
                 <div className="ai-metric-card">
 
@@ -494,6 +690,7 @@ function AIInsights() {
                   </div>
 
                   <div>
+
                     <span>
                       Sprint
                     </span>
@@ -502,10 +699,10 @@ function AIInsights() {
                       {selectedSprintData?.name ||
                         `#${selectedSprint}`}
                     </strong>
+
                   </div>
 
                 </div>
-
 
                 <div className="ai-metric-card">
 
@@ -514,6 +711,7 @@ function AIInsights() {
                   </div>
 
                   <div>
+
                     <span>
                       Analysis Status
                     </span>
@@ -521,12 +719,12 @@ function AIInsights() {
                     <strong>
                       Complete
                     </strong>
+
                   </div>
 
                 </div>
 
               </div>
-
 
               {/* INTERPRETATION */}
 
@@ -537,6 +735,7 @@ function AIInsights() {
                   <BrainCircuit size={22} />
 
                   <div>
+
                     <h3>
                       AI Analysis
                     </h3>
@@ -544,6 +743,7 @@ function AIInsights() {
                     <p>
                       What this prediction means
                     </p>
+
                   </div>
 
                 </div>

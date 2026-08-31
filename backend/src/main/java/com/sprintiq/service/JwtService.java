@@ -1,5 +1,6 @@
 package com.sprintiq.service;
 
+import com.sprintiq.entity.User;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,15 +21,17 @@ public class JwtService {
         );
     }
 
-    public String generateToken(String email) {
+    public String generateToken(User user) {
 
         Date now = new Date();
+
         Date expiration = new Date(
                 now.getTime() + 1000 * 60 * 60
         );
 
         return Jwts.builder()
-                .subject(email)
+                .subject(user.getEmail())
+                .claim("role", user.getRole().name())
                 .issuedAt(now)
                 .expiration(expiration)
                 .signWith(secretKey)

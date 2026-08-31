@@ -1,4 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -10,7 +15,13 @@ import Settings from './pages/Settings'
 
 import './App.css'
 
+
+// =====================================================
+// PROTECTED ROUTE
+// =====================================================
+
 function ProtectedRoute({ children }) {
+
   const token = localStorage.getItem('token')
 
   if (!token) {
@@ -20,31 +31,55 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+
+// =====================================================
+// APP
+// =====================================================
+
 function App() {
+
   return (
     <BrowserRouter>
 
       <Routes>
 
-        {/* HOME */}
+        {/* =================================================
+            HOME
+        ================================================= */}
 
         <Route
           path="/"
           element={
             localStorage.getItem('token')
-              ? <Navigate to="/dashboard" replace />
-              : <Navigate to="/login" replace />
+              ? (
+                <Navigate
+                  to="/dashboard"
+                  replace
+                />
+              )
+              : (
+                <Navigate
+                  to="/login"
+                  replace
+                />
+              )
           }
         />
 
-        {/* LOGIN */}
+
+        {/* =================================================
+            LOGIN
+        ================================================= */}
 
         <Route
           path="/login"
           element={<Login />}
         />
 
-        {/* DASHBOARD */}
+
+        {/* =================================================
+            DASHBOARD
+        ================================================= */}
 
         <Route
           path="/dashboard"
@@ -55,7 +90,10 @@ function App() {
           }
         />
 
-        {/* PROJECTS */}
+
+        {/* =================================================
+            PROJECTS
+        ================================================= */}
 
         <Route
           path="/projects"
@@ -66,7 +104,10 @@ function App() {
           }
         />
 
-        {/* SPRINTS */}
+
+        {/* =================================================
+            SPRINTS
+        ================================================= */}
 
         <Route
           path="/sprints"
@@ -77,7 +118,10 @@ function App() {
           }
         />
 
-        {/* TASKS */}
+
+        {/* =================================================
+            TASKS
+        ================================================= */}
 
         <Route
           path="/tasks"
@@ -88,7 +132,10 @@ function App() {
           }
         />
 
-        {/* AI INSIGHTS */}
+
+        {/* =================================================
+            AI INSIGHTS
+        ================================================= */}
 
         <Route
           path="/ai-insights"
@@ -99,7 +146,10 @@ function App() {
           }
         />
 
-        {/* SETTINGS */}
+
+        {/* =================================================
+            SETTINGS
+        ================================================= */}
 
         <Route
           path="/settings"
@@ -110,10 +160,26 @@ function App() {
           }
         />
 
+
+        {/* =================================================
+            FALLBACK
+        ================================================= */}
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
+        />
+
       </Routes>
 
     </BrowserRouter>
   )
 }
+
 
 export default App

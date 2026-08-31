@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 import {
@@ -16,6 +16,9 @@ import {
   Folder,
   ListChecks,
   CalendarCheck,
+  Users,
+  UserPlus,
+  UserMinus,
 } from 'lucide-react'
 
 import '../App.css'
@@ -24,7 +27,9 @@ function Projects() {
   const navigate = useNavigate()
 
   const [user, setUser] = useState({})
+  const isAdmin = user.role === 'ADMIN'
   const [projects, setProjects] = useState([])
+  const [allUsers, setAllUsers] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -37,6 +42,12 @@ function Projects() {
     name: '',
     description: '',
   })
+
+  // Team members
+  const [teamMembers, setTeamMembers] = useState({})
+  const [selectedMembers, setSelectedMembers] = useState({})
+  const [memberLoading, setMemberLoading] = useState({})
+  const [memberError, setMemberError] = useState({})
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -55,86 +66,299 @@ function Projects() {
     fetchProjects()
   }, [navigate])
 
-  const fetchProjects = async () => {
-  try {
-    setLoading(true)
-    setError('')
-
+  const getAuthConfig = () => {
     const token = localStorage.getItem('token')
 
-    const config = {
+    return {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     }
+  }
 
-    const [
-      projectsResponse,
-      sprintsResponse,
-      tasksResponse,
-    ] = await Promise.all([
-      axios.get(
-        'http://localhost:8080/api/projects',
-        config
-      ),
-      axios.get(
-        'http://localhost:8080/api/sprints',
-        config
-      ),
-      axios.get(
-        'http://localhost:8080/api/tasks',
-        config
-      ),
-    ])
+ const handleUnauthorized = (error) => {
+  if (error.response?.status === 401) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    navigate('/login')
+    return true
+  }
 
-    const projects = projectsResponse.data
-    const sprints = sprintsResponse.data
-    const tasks = tasksResponse.data
+  return false
+}
 
-    const projectsWithCounts = projects.map(
-      (project) => {
+  // ==========================================
+  // LOAD PROJECTS + SPRINTS + TASKS + USERS
+  // ==========================================
 
-        const projectSprints = sprints.filter(
-          (sprint) =>
-            sprint.project?.id === project.id
-        )
+  const fetchProjects = async () => {
+    try {
+      setLoading(true)
+      setError('')
 
-        const projectTasks = tasks.filter(
-          (task) =>
-            task.project?.id === project.id
-        )
+      const config = getAuthConfig()
 
-        return {
-          ...project,
-          sprintCount: projectSprints.length,
-          taskCount: projectTasks.length,
+      const [
+        projectsResponse,
+        sprintsResponse,
+        tasksResponse,
+        usersResponse,
+      ] = await Promise.all([
+        axios.get(
+          'http://localhost:8080/api/projects',
+          config
+        ),
+
+        axios.get(
+          'http://localhost:8080/api/sprints',
+          config
+        ),
+
+        axios.get(
+          'http://localhost:8080/api/tasks',
+          config
+        ),
+
+        axios.get(
+          'http://localhost:8080/api/users',
+          config
+        ),
+      ])
+
+      const projectsData = projectsResponse.data
+      const sprints = sprintsResponse.data
+      const tasks = tasksResponse.data
+      const users = usersResponse.data
+
+      setAllUsers(users)
+
+      const projectsWithCounts = projectsData.map(
+        (project) => {
+          const projectSprints = sprints.filter(
+            (sprint) =>
+              sprint.project?.id === project.id
+          )
+
+          const projectTasks = tasks.filter(
+            (task) =>
+              task.project?.id === project.id
+          )
+
+          return {
+            ...project,
+            sprintCount: projectSprints.length,
+            taskCount: projectTasks.length,
+          }
         }
+      )
+
+      setProjects(projectsWithCounts)
+
+      // Load team members for every project
+      projectsWithCounts.forEach((project) => {
+        fetchTeamMembers(project.id)
+      })
+    } catch (error) {
+      console.error(
+        'Projects API error:',
+        error
+      )
+
+      if (!handleUnauthorized(error)) {
+        setError('Unable to load projects')
       }
-    )
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    setProjects(projectsWithCounts)
+  // ==========================================
+  // TEAM MEMBERS
+  // ==========================================
 
-  } catch (error) {
-    console.error(
-      'Projects API error:',
-      error
-    )
+  const fetchTeamMembers = async (projectId) => {
+    try {
+      setMemberError((current) => ({
+        ...current,
+        [projectId]: '',
+      }))
 
-    if (
-      error.response?.status === 401 ||
-      error.response?.status === 403
-    ) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      navigate('/login')
-    } else {
-      setError('Unable to load projects')
+      const response = await axios.get(
+        `http://localhost:8080/api/projects/${projectId}/members`,
+        getAuthConfig()
+      )
+
+      setTeamMembers((current) => ({
+        ...current,
+        [projectId]: response.data,
+      }))
+    } catch (error) {
+  console.error(
+    'Team members API error:',
+    error
+  )
+
+  if (error.response?.status === 401) {
+    handleUnauthorized(error)
+    return
+  }
+
+  if (error.response?.status === 403) {
+    setMemberError((current) => ({
+      ...current,
+      [projectId]: '',
+    }))
+    return
+  }
+
+  setMemberError((current) => ({
+    ...current,
+    [projectId]:
+      'Unable to load team members',
+  }))
+}
+  }
+
+  const handleMemberChange = (
+    projectId,
+    userId
+  ) => {
+    setSelectedMembers((current) => ({
+      ...current,
+      [projectId]: userId,
+    }))
+
+    setMemberError((current) => ({
+      ...current,
+      [projectId]: '',
+    }))
+  }
+
+  const handleAddMember = async (projectId) => {
+    const userId = selectedMembers[projectId]
+
+    if (!userId) {
+      setMemberError((current) => ({
+        ...current,
+        [projectId]:
+          'Please select a user',
+      }))
+      return
     }
 
-  } finally {
-    setLoading(false)
+    try {
+      setMemberLoading((current) => ({
+        ...current,
+        [projectId]: true,
+      }))
+
+      setMemberError((current) => ({
+        ...current,
+        [projectId]: '',
+      }))
+
+      await axios.post(
+        `http://localhost:8080/api/projects/${projectId}/members/${userId}`,
+        {},
+        getAuthConfig()
+      )
+
+      setSelectedMembers((current) => ({
+        ...current,
+        [projectId]: '',
+      }))
+
+      await fetchTeamMembers(projectId)
+    } catch (error) {
+      console.error(
+        'Add member error:',
+        error
+      )
+
+      if (!handleUnauthorized(error)) {
+        if (error.response?.status === 404) {
+          setMemberError((current) => ({
+            ...current,
+            [projectId]:
+              'User not found',
+          }))
+        } else if (
+          error.response?.status === 409
+        ) {
+          setMemberError((current) => ({
+            ...current,
+            [projectId]:
+              'User is already a team member',
+          }))
+        } else {
+          setMemberError((current) => ({
+            ...current,
+            [projectId]:
+              'Unable to add team member',
+          }))
+        }
+      }
+    } finally {
+      setMemberLoading((current) => ({
+        ...current,
+        [projectId]: false,
+      }))
+    }
   }
-}
+
+  const handleRemoveMember = async (
+    projectId,
+    userId
+  ) => {
+    const confirmed = window.confirm(
+      'Remove this member from the project?'
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setMemberLoading((current) => ({
+        ...current,
+        [projectId]: true,
+      }))
+
+      setMemberError((current) => ({
+        ...current,
+        [projectId]: '',
+      }))
+
+      await axios.delete(
+        `http://localhost:8080/api/projects/${projectId}/members/${userId}`,
+        getAuthConfig()
+      )
+
+      await fetchTeamMembers(projectId)
+    } catch (error) {
+      console.error(
+        'Remove member error:',
+        error
+      )
+
+      if (!handleUnauthorized(error)) {
+        setMemberError((current) => ({
+          ...current,
+          [projectId]:
+            'Unable to remove team member',
+        }))
+      }
+    } finally {
+      setMemberLoading((current) => ({
+        ...current,
+        [projectId]: false,
+      }))
+    }
+  }
+
+  // ==========================================
+  // PROJECT FORM
+  // ==========================================
 
   const handleInputChange = (event) => {
     const { name, value } = event.target
@@ -151,14 +375,14 @@ function Projects() {
     setFormError('')
 
     if (!formData.name.trim()) {
-      setFormError('Project name is required')
+      setFormError(
+        'Project name is required'
+      )
       return
     }
 
     try {
       setCreating(true)
-
-      const token = localStorage.getItem('token')
 
       const response = await axios.post(
         'http://localhost:8080/api/projects',
@@ -168,16 +392,34 @@ function Projects() {
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization:
+              `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type':
+              'application/json',
           },
         }
       )
 
+      const newProject = {
+        ...response.data,
+        sprintCount: 0,
+        taskCount: 0,
+      }
+
       setProjects((current) => [
         ...current,
-        response.data,
+        newProject,
       ])
+
+      setTeamMembers((current) => ({
+        ...current,
+        [newProject.id]: [],
+      }))
+
+      setSelectedMembers((current) => ({
+        ...current,
+        [newProject.id]: '',
+      }))
 
       setFormData({
         name: '',
@@ -185,27 +427,29 @@ function Projects() {
       })
 
       setShowCreateForm(false)
-
     } catch (error) {
-      console.error('Create project error:', error)
+      console.error(
+        'Create project error:',
+        error
+      )
 
-      if (
-        error.response?.status === 401 ||
-        error.response?.status === 403
-      ) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        navigate('/login')
-      } else {
-        setFormError('Unable to create project')
+      if (!handleUnauthorized(error)) {
+        setFormError(
+          'Unable to create project'
+        )
       }
-
     } finally {
       setCreating(false)
     }
   }
 
-  const handleDeleteProject = async (projectId) => {
+  // ==========================================
+  // DELETE PROJECT
+  // ==========================================
+
+  const handleDeleteProject = async (
+    projectId
+  ) => {
     const confirmed = window.confirm(
       'Are you sure you want to delete this project?'
     )
@@ -215,34 +459,34 @@ function Projects() {
     }
 
     try {
-      const token = localStorage.getItem('token')
-
       await axios.delete(
         `http://localhost:8080/api/projects/${projectId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        getAuthConfig()
       )
 
       setProjects((current) =>
         current.filter(
-          (project) => project.id !== projectId
+          (project) =>
+            project.id !== projectId
         )
       )
 
-    } catch (error) {
-      console.error('Delete project error:', error)
+      setTeamMembers((current) => {
+        const updated = {
+          ...current,
+        }
 
-      if (
-        error.response?.status === 401 ||
-        error.response?.status === 403
-      ) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        navigate('/login')
-      } else {
+        delete updated[projectId]
+
+        return updated
+      })
+    } catch (error) {
+      console.error(
+        'Delete project error:',
+        error
+      )
+
+      if (!handleUnauthorized(error)) {
         alert(
           'Unable to delete project. It may contain sprints or tasks.'
         )
@@ -250,20 +494,30 @@ function Projects() {
     }
   }
 
-const getProjectSprintCount = (project) => {
-  return project.sprintCount ?? 0
-}
+  const getProjectSprintCount = (
+    project
+  ) => {
+    return project.sprintCount ?? 0
+  }
 
-const getProjectTaskCount = (project) => {
-  return project.taskCount ?? 0
+  const getProjectTaskCount = (
+    project
+  ) => {
+    return project.taskCount ?? 0
+  }
+const handleProjectClick = (project) => {
+  navigate(`/sprints?projectId=${project.id}`)
 }
-
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
 
     navigate('/login')
   }
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="dashboard-layout">
@@ -280,61 +534,76 @@ const getProjectTaskCount = (project) => {
 
           <div>
             <h2>SprintIQ</h2>
-            <span>Agile Intelligence</span>
+            <span>
+              Agile Intelligence
+            </span>
           </div>
 
         </div>
 
         <nav className="nav-menu">
 
-          <a
-            href="/dashboard"
-            className="nav-item"
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? 'active' : ''}`
+            }
           >
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
-          </a>
+          </NavLink>
 
-          <a
-            href="/projects"
-            className="nav-item active"
+          <NavLink
+            to="/projects"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? 'active' : ''}`
+            }
           >
             <FolderKanban size={20} />
             <span>Projects</span>
-          </a>
+          </NavLink>
 
-          <a
-            href="/sprints"
-            className="nav-item"
+          <NavLink
+            to="/sprints"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? 'active' : ''}`
+            }
           >
             <CalendarDays size={20} />
             <span>Sprints</span>
-          </a>
+          </NavLink>
 
-          <a
-            href="/tasks"
-            className="nav-item"
+          <NavLink
+            to="/tasks"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? 'active' : ''}`
+            }
           >
             <ListTodo size={20} />
             <span>Tasks</span>
-          </a>
+          </NavLink>
 
-          <a href="/ai-insights" className="nav-item">
-  <BrainCircuit size={20} />
-  <span>AI Insights</span>
-</a>
+          <NavLink
+            to="/ai-insights"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? 'active' : ''}`
+            }
+          >
+            <BrainCircuit size={20} />
+            <span>AI Insights</span>
+          </NavLink>
 
         </nav>
 
         <div className="sidebar-bottom">
 
           <Link
-  to="/settings"
-  className="nav-item"
->
-  <Settings size={20} />
-  <span>Settings</span>
-</Link>
+            to="/settings"
+            className="nav-item"
+          >
+            <Settings size={20} />
+            <span>Settings</span>
+          </Link>
 
           <button
             type="button"
@@ -349,15 +618,19 @@ const getProjectTaskCount = (project) => {
 
       </aside>
 
-      {/* MAIN */}
+      {/* MAIN CONTENT */}
 
       <main className="main-content">
+
+        {/* TOP BAR */}
 
         <header className="topbar">
 
           <div>
             <h1>Projects</h1>
-            <p>Manage your Agile projects</p>
+            <p>
+              Manage your Agile projects
+            </p>
           </div>
 
           <div className="user-profile">
@@ -369,6 +642,7 @@ const getProjectTaskCount = (project) => {
             </div>
 
             <div>
+
               <strong>
                 {user.name || 'User'}
               </strong>
@@ -376,11 +650,14 @@ const getProjectTaskCount = (project) => {
               <span>
                 {user.role || 'Member'}
               </span>
+
             </div>
 
           </div>
 
         </header>
+
+        {/* CONTENT */}
 
         <section className="projects-content">
 
@@ -389,32 +666,39 @@ const getProjectTaskCount = (project) => {
           <div className="projects-header">
 
             <div>
+
               <span className="eyebrow">
                 PROJECT MANAGEMENT
               </span>
 
-              <h2>Your Projects</h2>
+              <h2>
+                Your Projects
+              </h2>
 
               <p>
-                Create and manage your Agile projects.
+                Create and manage your
+                Agile projects.
               </p>
+
             </div>
 
-            <button
-              type="button"
-              className="create-sprint-button"
-              onClick={() => {
-                setFormError('')
-                setShowCreateForm(true)
-              }}
-            >
-              <Plus size={18} />
-              New Project
-            </button>
+            {isAdmin && (
+  <button
+    type="button"
+    className="create-sprint-button"
+    onClick={() => {
+      setFormError('')
+      setShowCreateForm(true)
+    }}
+  >
+    <Plus size={18} />
+    New Project
+  </button>
+)}
 
           </div>
 
-          {/* CREATE FORM */}
+          {/* CREATE PROJECT FORM */}
 
           {showCreateForm && (
 
@@ -425,11 +709,16 @@ const getProjectTaskCount = (project) => {
                 <div className="sprint-form-header">
 
                   <div>
-                    <h2>Create New Project</h2>
+
+                    <h2>
+                      Create New Project
+                    </h2>
 
                     <p>
-                      Add a new project to SprintIQ.
+                      Add a new project to
+                      SprintIQ.
                     </p>
+
                   </div>
 
                   <button
@@ -444,7 +733,9 @@ const getProjectTaskCount = (project) => {
 
                 </div>
 
-                <form onSubmit={handleCreateProject}>
+                <form
+                  onSubmit={handleCreateProject}
+                >
 
                   <div className="form-group">
 
@@ -457,7 +748,9 @@ const getProjectTaskCount = (project) => {
                       name="name"
                       placeholder="e.g. SprintIQ"
                       value={formData.name}
-                      onChange={handleInputChange}
+                      onChange={
+                        handleInputChange
+                      }
                     />
 
                   </div>
@@ -471,8 +764,12 @@ const getProjectTaskCount = (project) => {
                     <textarea
                       name="description"
                       placeholder="Describe your project..."
-                      value={formData.description}
-                      onChange={handleInputChange}
+                      value={
+                        formData.description
+                      }
+                      onChange={
+                        handleInputChange
+                      }
                       rows="4"
                     />
 
@@ -540,86 +837,466 @@ const getProjectTaskCount = (project) => {
 
             <div className="projects-grid">
 
-              {projects.map((project) => (
+              {projects.map((project) => {
 
-                <div
-                  className="project-card"
-                  key={project.id}
-                >
+                const members =
+                  teamMembers[project.id] || []
 
-                  <div className="project-card-top">
+                const currentMemberError =
+                  memberError[project.id]
 
-                    <div className="project-icon">
-                      <Folder size={24} />
+                const isMemberLoading =
+                  memberLoading[project.id]
+
+                const selectedUserId =
+                  selectedMembers[project.id] || ''
+
+                // Users who are not already
+                // project members
+                const availableUsers =
+                  allUsers.filter(
+                    (availableUser) =>
+                      !members.some(
+                        (member) =>
+                          member.id ===
+                          availableUser.id
+                      )
+                  )
+
+                return (
+
+                  <div
+  className="project-card"
+  key={project.id}
+  onClick={() => handleProjectClick(project)}
+  style={{ cursor: 'pointer' }}
+>
+
+                    {/* PROJECT TOP */}
+
+                    <div className="project-card-top">
+
+                      <div className="project-icon">
+                        <Folder size={24} />
+                      </div>
+
+                      {isAdmin && (
+  <button
+    type="button"
+    className="project-delete-button"
+    onClick={(event) => {
+  event.stopPropagation()
+  handleDeleteProject(project.id)
+}}
+    title="Delete project"
+  >
+    <Trash2 size={17} />
+  </button>
+)}
+
                     </div>
 
-                    <button
-                      type="button"
-                      className="project-delete-button"
-                      onClick={() =>
-                        handleDeleteProject(
-                          project.id
-                        )
-                      }
-                      title="Delete project"
+                    <h3>
+                      {project.name}
+                    </h3>
+
+                    <p className="project-description">
+                      {project.description ||
+                        'No description provided.'}
+                    </p>
+
+                    {/* PROJECT STATS */}
+
+                    <div className="project-stats">
+
+                      <div>
+
+                        <CalendarCheck
+                          size={17}
+                        />
+
+                        <span>
+                          Sprints
+                        </span>
+
+                        <strong>
+                          {getProjectSprintCount(
+                            project
+                          )}
+                        </strong>
+
+                      </div>
+
+                      <div>
+
+                        <ListChecks
+                          size={17}
+                        />
+
+                        <span>
+                          Tasks
+                        </span>
+
+                        <strong>
+                          {getProjectTaskCount(
+                            project
+                          )}
+                        </strong>
+
+                      </div>
+
+                    </div>
+
+                    {/* TEAM MEMBERS */}
+
+                    <div
+                      className="project-team-section"
+                      style={{
+                        marginTop: '20px',
+                        paddingTop: '18px',
+                        borderTop:
+                          '1px solid #e5e7eb',
+                      }}
                     >
-                      <Trash2 size={17} />
-                    </button>
 
-                  </div>
+                      {/* TEAM HEADER */}
 
-                  <h3>
-                    {project.name}
-                  </h3>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems:
+                            'center',
+                          gap: '8px',
+                          marginBottom:
+                            '14px',
+                        }}
+                      >
 
-                  <p className="project-description">
-                    {project.description ||
-                      'No description provided.'}
-                  </p>
+                        <Users size={18} />
 
-                  <div className="project-stats">
+                        <strong>
+                          Team Members
+                        </strong>
 
-                    <div>
-                      <CalendarCheck size={17} />
+                        <span
+                          style={{
+                            marginLeft:
+                              'auto',
+                            fontSize:
+                              '13px',
+                            color:
+                              '#64748b',
+                          }}
+                        >
+                          {members.length}
+                        </span>
 
-                      <span>
-                        Sprints
-                      </span>
+                      </div>
 
-                      <strong>
-                        {getProjectSprintCount(
-                          project
-                        )}
-                      </strong>
+                      {/* MEMBER LIST */}
+
+                      {members.length > 0 ? (
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection:
+                              'column',
+                            gap: '10px',
+                          }}
+                        >
+
+                          {members.map(
+                            (member) => (
+
+                              <div
+                                key={member.id}
+                                style={{
+                                  display:
+                                    'flex',
+                                  alignItems:
+                                    'center',
+                                  gap: '10px',
+                                  padding:
+                                    '8px',
+                                  borderRadius:
+                                    '8px',
+                                  background:
+                                    '#f8fafc',
+                                }}
+                              >
+
+                                <div
+                                  style={{
+                                    width:
+                                      '34px',
+                                    height:
+                                      '34px',
+                                    borderRadius:
+                                      '50%',
+                                    display:
+                                      'flex',
+                                    alignItems:
+                                      'center',
+                                    justifyContent:
+                                      'center',
+                                    background:
+                                      '#e0e7ff',
+                                    color:
+                                      '#4f46e5',
+                                    fontWeight:
+                                      '600',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {(member.name ||
+                                    'U')
+                                    .charAt(0)
+                                    .toUpperCase()}
+                                </div>
+
+                                <div
+                                  style={{
+                                    flex: 1,
+                                    minWidth: 0,
+                                  }}
+                                >
+
+                                  <div
+                                    style={{
+                                      fontWeight:
+                                        '600',
+                                      fontSize:
+                                        '14px',
+                                    }}
+                                  >
+                                    {member.name}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize:
+                                        '12px',
+                                      color:
+                                        '#64748b',
+                                      overflow:
+                                        'hidden',
+                                      textOverflow:
+                                        'ellipsis',
+                                      whiteSpace:
+                                        'nowrap',
+                                    }}
+                                  >
+                                    {member.email}
+                                  </div>
+
+                                </div>
+
+                                {isAdmin && (
+  <button
+    type="button"
+    onClick={(event) => {
+  event.stopPropagation()
+  handleRemoveMember(
+    project.id,
+    member.id
+  )
+}}
+
+    disabled={isMemberLoading}
+    title="Remove member"
+    style={{
+      border: 'none',
+      background: '#fee2e2',
+      color: '#dc2626',
+      borderRadius: '7px',
+      padding: '7px',
+      cursor: isMemberLoading
+        ? 'not-allowed'
+        : 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <UserMinus size={15} />
+  </button>
+)}
+
+                              </div>
+
+                            )
+                          )}
+
+                        </div>
+
+                      ) : (
+
+                        <p
+                          style={{
+                            fontSize:
+                              '13px',
+                            color:
+                              '#64748b',
+                            marginBottom:
+                              '12px',
+                          }}
+                        >
+                          No team members yet.
+                        </p>
+
+                      )}
+
+                      {/* ADD MEMBER */}
+                      {isAdmin &&(
+                      <div
+                        style={{
+                          display:
+                            'flex',
+                          gap: '8px',
+                          marginTop:
+                            '12px',
+                        }}
+                      >
+
+                        <select
+  value={selectedUserId}
+  onClick={(event) => event.stopPropagation()}
+  onChange={(event) =>
+    handleMemberChange(
+      project.id,
+      event.target.value
+    )
+  }
+                          disabled={
+                            isMemberLoading ||
+                            availableUsers.length === 0
+                          }
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            padding:
+                              '9px 10px',
+                            border:
+                              '1px solid #cbd5e1',
+                            borderRadius:
+                              '7px',
+                            outline:
+                              'none',
+                            background:
+                              'white',
+                            color:
+                              '#334155',
+                          }}
+                        >
+
+                          <option value="">
+                            {availableUsers.length === 0
+                              ? 'No users available'
+                              : 'Select team member'}
+                          </option>
+
+                          {availableUsers.map(
+                            (availableUser) => (
+
+                              <option
+                                key={
+                                  availableUser.id
+                                }
+                                value={
+                                  availableUser.id
+                                }
+                              >
+                                {availableUser.name}
+                                {' — '}
+                                {availableUser.email}
+                              </option>
+
+                            )
+                          )}
+
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={(event) => {
+  event.stopPropagation()
+  handleAddMember(project.id)
+}}
+                          disabled={
+                            isMemberLoading ||
+                            !selectedUserId
+                          }
+                          style={{
+                            display:
+                              'flex',
+                            alignItems:
+                              'center',
+                            gap: '5px',
+                            border:
+                              'none',
+                            borderRadius:
+                              '7px',
+                            padding:
+                              '9px 12px',
+                            background:
+                              !selectedUserId ||
+                              isMemberLoading
+                                ? '#a5b4fc'
+                                : '#4f46e5',
+                            color:
+                              'white',
+                            fontWeight:
+                              '600',
+                            cursor:
+                              !selectedUserId ||
+                              isMemberLoading
+                                ? 'not-allowed'
+                                : 'pointer',
+                          }}
+                        >
+
+                          <UserPlus
+                            size={15}
+                          />
+
+                          {isMemberLoading
+                            ? '...'
+                            : 'Add'}
+
+                        </button>
+
+                      </div>)}
+
+                      {/* MEMBER ERROR */}
+
+                      {currentMemberError && (
+
+                        <div
+                          style={{
+                            color:
+                              '#dc2626',
+                            fontSize:
+                              '12px',
+                            marginTop:
+                              '8px',
+                          }}
+                        >
+                          {currentMemberError}
+                        </div>
+
+                      )}
+
                     </div>
 
-                    <div>
-                      <ListChecks size={17} />
+                    {/* PROJECT FOOTER */}
 
-                      <span>
-                        Tasks
-                      </span>
-
-                      <strong>
-                        {getProjectTaskCount(
-                          project
-                        )}
-                      </strong>
-                    </div>
-
+                   
                   </div>
+                )
+              })}
 
-                  <div className="project-card-footer">
-
-                    <span>
-                      Project #{project.id}
-                    </span>
-
-                  </div>
-
-                </div>
-
-              ))}
+              {/* EMPTY STATE */}
 
               {projects.length === 0 && (
 

@@ -21,6 +21,7 @@ public class SprintController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Sprint createSprint(@RequestBody SprintRequest request) {
+
         return sprintService.createSprint(
                 request.name(),
                 request.startDate(),
@@ -38,6 +39,28 @@ public class SprintController {
     @GetMapping("/{id}")
     public Sprint getSprint(@PathVariable Long id) {
         return sprintService.getSprint(id);
+    }
+
+    @PutMapping("/{id}")
+    public Sprint updateSprint(
+            @PathVariable Long id,
+            @RequestBody SprintRequest request) {
+
+        return sprintService.updateSprint(
+                id,
+                request.name(),
+                request.startDate(),
+                request.endDate(),
+                request.status(),
+                request.projectId()
+        );
+    }
+
+    @GetMapping("/{id}/progress")
+    public int getSprintProgress(
+            @PathVariable Long id) {
+
+        return sprintService.getSprintProgress(id);
     }
 
     @DeleteMapping("/{id}")

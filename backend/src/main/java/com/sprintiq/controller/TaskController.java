@@ -7,6 +7,7 @@ import com.sprintiq.entity.TaskStatus;
 import com.sprintiq.entity.User;
 import com.sprintiq.service.TaskService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,11 +22,23 @@ public class TaskController {
         this.taskService = taskService;
     }
 
+    // ==========================================
+    // CREATE TASK
+    // ==========================================
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TaskResponse createTask(@RequestBody TaskRequest request) {
+    public TaskResponse createTask(
+            @RequestBody TaskRequest request,
+            Authentication authentication) {
 
-        TaskStatus status = TaskStatus.valueOf(request.status());
+        String currentUserEmail =
+                authentication.getName();
+
+        TaskStatus status =
+                TaskStatus.valueOf(
+                        request.status()
+                );
 
         Task task = taskService.createTask(
                 request.title(),
@@ -34,11 +47,16 @@ public class TaskController {
                 request.priority(),
                 request.projectId(),
                 request.sprintId(),
-                request.assignedToId()
+                request.assignedToId(),
+                currentUserEmail
         );
 
         return toResponse(task);
     }
+
+    // ==========================================
+    // GET ALL TASKS
+    // ==========================================
 
     @GetMapping
     public List<TaskResponse> getAllTasks() {
@@ -49,48 +67,119 @@ public class TaskController {
                 .toList();
     }
 
+    // ==========================================
+    // GET SINGLE TASK
+    // ==========================================
+
     @GetMapping("/{id}")
-    public TaskResponse getTask(@PathVariable Long id) {
+    public TaskResponse getTask(
+            @PathVariable Long id) {
 
         return toResponse(
                 taskService.getTask(id)
         );
     }
 
+    // ==========================================
+    // UPDATE TASK STATUS
+    // ==========================================
+
     @PatchMapping("/{id}/status")
     public TaskResponse updateTaskStatus(
             @PathVariable Long id,
-            @RequestParam String status) {
+            @RequestParam String status,
+            Authentication authentication) {
 
-        TaskStatus taskStatus = TaskStatus.valueOf(status);
+        TaskStatus taskStatus =
+                TaskStatus.valueOf(status);
 
-        Task task = taskService.updateTaskStatus(
-                id,
-                taskStatus
-        );
+        String currentUserEmail =
+                authentication.getName();
+
+        Task task =
+                taskService.updateTaskStatus(
+                        id,
+                        taskStatus,
+                        currentUserEmail
+                );
 
         return toResponse(task);
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTask(@PathVariable Long id) {
+    // ==========================================
+    // UPDATE TASK DETAILS
+    // ADMIN ONLY
+    // ==========================================
 
-        taskService.deleteTask(id);
+    @PutMapping("/{id}")
+    public TaskResponse updateTask(
+            @PathVariable Long id,
+            @RequestBody TaskRequest request,
+            Authentication authentication) {
+
+        String currentUserEmail =
+                authentication.getName();
+
+        TaskStatus status =
+                TaskStatus.valueOf(
+                        request.status()
+                );
+
+        Task task =
+                taskService.updateTask(
+                        id,
+                        request.title(),
+                        request.description(),
+                        status,
+                        request.priority(),
+                        request.projectId(),
+                        request.sprintId(),
+                        request.assignedToId(),
+                        currentUserEmail
+                );
+
+        return toResponse(task);
     }
 
-    private TaskResponse toResponse(Task task) {
+    // ==========================================
+    // DELETE TASK
+    // ADMIN ONLY
+    // ==========================================
 
-        User assignedTo = task.getAssignedTo();
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTask(
+            @PathVariable Long id,
+            Authentication authentication) {
 
-        UserResponse assignedToResponse = assignedTo == null
-                ? null
-                : new UserResponse(
-                        assignedTo.getId(),
-                        assignedTo.getName(),
-                        assignedTo.getEmail(),
-                        assignedTo.getRole()
-                );
+        String currentUserEmail =
+                authentication.getName();
+
+        taskService.deleteTask(
+                id,
+                currentUserEmail
+        );
+    }
+
+    // ==========================================
+    // RESPONSE MAPPER
+    // ==========================================
+
+    private TaskResponse toResponse(
+            Task task) {
+
+        User assignedTo =
+                task.getAssignedTo();
+
+        UserResponse assignedToResponse =
+                assignedTo == null
+                        ? null
+                        : new UserResponse(
+                                assignedTo.getId(),
+                                assignedTo.getName(),
+                                assignedTo.getEmail(),
+                                assignedTo.getRole()
+                        );
 
         return new TaskResponse(
                 task.getId(),
@@ -103,6 +192,10 @@ public class TaskController {
                 assignedToResponse
         );
     }
+
+    // ==========================================
+    // REQUEST DTO
+    // ==========================================
 
     public record TaskRequest(
             String title,

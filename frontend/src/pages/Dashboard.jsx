@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  NavLink,
+  Link,
+  useNavigate,
+} from 'react-router-dom'
+
 import axios from 'axios'
 
 import {
@@ -10,51 +15,48 @@ import {
   BrainCircuit,
   Settings,
   LogOut,
+  Users,
   CheckCircle2,
   Clock3,
-  Circle,
-  ListChecks,
-  ShieldCheck,
-  AlertTriangle,
-  AlertCircle,
   ArrowRight,
-  RefreshCw,
+  UserPlus,
+  Plus,
 } from 'lucide-react'
 
 import '../App.css'
 
 function Dashboard() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-
-const sprintId = searchParams.get('sprintId') || '2'
-const sprintName =
-  searchParams.get('sprintName') || 'Sprint 1'
 
   const [user, setUser] = useState({})
 
-  const [stats, setStats] = useState({
-    totalTasks: 0,
-    todoTasks: 0,
-    inProgressTasks: 0,
-    completedTasks: 0,
-  })
-
-  const [aiPrediction, setAiPrediction] = useState(null)
+  const [projects, setProjects] = useState([])
+  const [users, setUsers] = useState([])
+  const [sprints, setSprints] = useState([])
+  const [tasks, setTasks] = useState([])
 
   const [loading, setLoading] = useState(true)
-  const [aiLoading, setAiLoading] = useState(true)
-
   const [error, setError] = useState('')
-  const [aiError, setAiError] = useState('')
 
-  useEffect(() => {
-    const storedUser = JSON.parse(
-      localStorage.getItem('user') || '{}'
-    )
+  // ==========================================
+  // AUTH CONFIG
+  // ==========================================
 
-    setUser(storedUser)
+  const getAuthConfig = () => {
+    const token = localStorage.getItem('token')
 
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  }
+
+  // ==========================================
+  // LOAD DASHBOARD DATA
+  // ==========================================
+
+  const fetchDashboardData = async () => {
     const token = localStorage.getItem('token')
 
     if (!token) {
@@ -62,144 +64,194 @@ const sprintName =
       return
     }
 
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true)
-        setAiLoading(true)
+    try {
+      setLoading(true)
+      setError('')
 
-        setError('')
-        setAiError('')
+      const config = getAuthConfig()
 
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const [
+        projectsResponse,
+        usersResponse,
+        sprintsResponse,
+        tasksResponse,
+      ] = await Promise.all([
+        axios.get(
+          'http://localhost:8080/api/projects',
+          config
+        ),
 
-        const [statsResponse, aiResponse] =
-          await Promise.all([
-            axios.get(
-              `http://localhost:8080/api/dashboard/sprints/${sprintId}`,
-              config
-            ),
-            axios.get(
-              `http://localhost:8080/api/ai/sprint-risk/${sprintId}`,
-              config
-            ),
-          ])
+        axios.get(
+          'http://localhost:8080/api/users',
+          config
+        ),
 
-        setStats(statsResponse.data)
-        setAiPrediction(aiResponse.data)
+        axios.get(
+          'http://localhost:8080/api/sprints',
+          config
+        ),
 
-      } catch (error) {
-        console.error(
-          'Dashboard API error:',
-          error
-        )
+        axios.get(
+          'http://localhost:8080/api/tasks',
+          config
+        ),
+      ])
 
-        if (
-          error.response?.status === 401 ||
-          error.response?.status === 403
-        ) {
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          navigate('/login')
-        } else {
+      setProjects(projectsResponse.data || [])
+      setUsers(usersResponse.data || [])
+      setSprints(sprintsResponse.data || [])
+      setTasks(tasksResponse.data || [])
+    } catch (error) {
+      console.error(
+        'Dashboard error:',
+        error
+      )
 
-          // If dashboard statistics failed
-          if (
-            error.config?.url?.includes(
-              '/api/dashboard/'
-            )
-          ) {
-            setError(
-              'Unable to load dashboard statistics'
-            )
-          }
-
-          // If AI service failed
-          if (
-            error.config?.url?.includes(
-              '/api/ai/'
-            )
-          ) {
-            setAiError(
-              'AI analysis is currently unavailable'
-            )
-          }
-
-          // Fallback if Promise.all failed
-          if (!error.config?.url) {
-            setError(
-              'Unable to load dashboard data'
-            )
-          }
-        }
-
-      } finally {
-        setLoading(false)
-        setAiLoading(false)
+      if (
+        error.response?.status === 401 ||
+        error.response?.status === 403
+      ) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        navigate('/login')
+        return
       }
+
+      setError(
+        'Unable to load dashboard data'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ==========================================
+  // INITIAL LOAD
+  // ==========================================
+
+  useEffect(() => {
+    try {
+      const storedUser = JSON.parse(
+        localStorage.getItem('user') || '{}'
+      )
+
+      setUser(storedUser)
+    } catch {
+      setUser({})
     }
 
     fetchDashboardData()
+  }, [])
 
-  }, [navigate, sprintId])
+  // ==========================================
+  // REFRESH WHEN RETURNING TO DASHBOARD
+  // ==========================================
+
+  useEffect(() => {
+    const handleFocus = () => {
+      if (
+        window.location.pathname ===
+        '/dashboard'
+      ) {
+        fetchDashboardData()
+      }
+    }
+
+    window.addEventListener(
+      'focus',
+      handleFocus
+    )
+
+    return () => {
+      window.removeEventListener(
+        'focus',
+        handleFocus
+      )
+    }
+  }, [])
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
 
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
 
-    navigate('/login')
+    navigate('/login', {
+      replace: true,
+    })
   }
 
-  const getRiskClass = (risk) => {
-    if (risk === 'LOW') {
-      return 'risk-low'
-    }
+  // ==========================================
+  // TASK STATISTICS
+  // ==========================================
 
-    if (risk === 'MEDIUM') {
-      return 'risk-medium'
-    }
+  const totalTasks = tasks.length
 
-    return 'risk-high'
-  }
+  const completedTasks = tasks.filter(
+    (task) =>
+      task.status === 'DONE'
+  ).length
 
-  const getRiskIcon = (risk) => {
-    if (risk === 'LOW') {
-      return <ShieldCheck size={26} />
-    }
+  const inProgressTasks = tasks.filter(
+    (task) =>
+      task.status === 'IN_PROGRESS'
+  ).length
 
-    if (risk === 'MEDIUM') {
-      return <AlertTriangle size={26} />
-    }
+  const todoTasks = tasks.filter(
+    (task) =>
+      task.status === 'TODO'
+  ).length
 
-    return <AlertCircle size={26} />
-  }
-
-  const getRiskMessage = (risk) => {
-    if (risk === 'LOW') {
-      return 'Sprint is currently on track.'
-    }
-
-    if (risk === 'MEDIUM') {
-      return 'Sprint needs attention.'
-    }
-
-    return 'Sprint is at high risk.'
-  }
-
-  const confidencePercentage =
-    aiPrediction
-      ? Math.round(
-          aiPrediction.confidence * 100
+  const completionPercentage =
+    totalTasks === 0
+      ? 0
+      : Math.round(
+          (completedTasks * 100) /
+            totalTasks
         )
-      : 0
+
+  // ==========================================
+  // PROJECT INFORMATION
+  // ==========================================
+
+  const getProjectSprints = (
+    projectId
+  ) => {
+    return sprints.filter(
+      (sprint) =>
+        sprint.project?.id ===
+        projectId
+    )
+  }
+
+  const getProjectTasks = (
+    projectId
+  ) => {
+    return tasks.filter(
+      (task) =>
+        task.project?.id ===
+        projectId
+    )
+  }
+
+  const getProjectMembers = (
+    project
+  ) => {
+    return project.members || []
+  }
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="dashboard-layout">
 
-      {/* SIDEBAR */}
+      {/* =====================================================
+          SIDEBAR
+      ===================================================== */}
 
       <aside className="sidebar">
 
@@ -211,64 +263,102 @@ const sprintName =
 
           <div>
             <h2>SprintIQ</h2>
-            <span>Agile Intelligence</span>
+            <span>
+              Agile Intelligence
+            </span>
           </div>
 
         </div>
 
         <nav className="nav-menu">
 
-          <a
-            href="/dashboard"
-            className="nav-item active"
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              `nav-item ${
+                isActive
+                  ? 'active'
+                  : ''
+              }`
+            }
           >
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
-          </a>
+          </NavLink>
 
-          <a
-            href="/projects"
-            className="nav-item"
+          <NavLink
+            to="/projects"
+            className={({ isActive }) =>
+              `nav-item ${
+                isActive
+                  ? 'active'
+                  : ''
+              }`
+            }
           >
             <FolderKanban size={20} />
             <span>Projects</span>
-          </a>
+          </NavLink>
 
-          <a
-            href="/sprints"
-            className="nav-item"
+          <NavLink
+            to="/sprints"
+            className={({ isActive }) =>
+              `nav-item ${
+                isActive
+                  ? 'active'
+                  : ''
+              }`
+            }
           >
             <CalendarDays size={20} />
             <span>Sprints</span>
-          </a>
+          </NavLink>
 
-          <a
-            href="/tasks"
-            className="nav-item"
+          <NavLink
+            to="/tasks"
+            className={({ isActive }) =>
+              `nav-item ${
+                isActive
+                  ? 'active'
+                  : ''
+              }`
+            }
           >
             <ListTodo size={20} />
             <span>Tasks</span>
-          </a>
+          </NavLink>
 
-          <a
-            href="/ai-insights"
-            className="nav-item"
+          <NavLink
+            to="/ai-insights"
+            className={({ isActive }) =>
+              `nav-item ${
+                isActive
+                  ? 'active'
+                  : ''
+              }`
+            }
           >
             <BrainCircuit size={20} />
             <span>AI Insights</span>
-          </a>
+          </NavLink>
 
         </nav>
 
         <div className="sidebar-bottom">
 
-          <Link
-  to="/settings"
-  className="nav-item"
->
-  <Settings size={20} />
-  <span>Settings</span>
-</Link>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              `nav-item ${
+                isActive
+                  ? 'active'
+                  : ''
+              }`
+            }
+          >
+            <Settings size={20} />
+            <span>Settings</span>
+          </NavLink>
 
           <button
             type="button"
@@ -283,7 +373,9 @@ const sprintName =
 
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
 
       <main className="main-content">
 
@@ -293,6 +385,7 @@ const sprintName =
 
           <div>
             <h1>Dashboard</h1>
+
             <p>
               Welcome back to SprintIQ
             </p>
@@ -307,6 +400,7 @@ const sprintName =
             </div>
 
             <div>
+
               <strong>
                 {user.name || 'User'}
               </strong>
@@ -314,17 +408,22 @@ const sprintName =
               <span>
                 {user.role || 'Member'}
               </span>
+
             </div>
 
           </div>
 
         </header>
 
-        {/* DASHBOARD CONTENT */}
+        {/* =====================================================
+            DASHBOARD CONTENT
+        ===================================================== */}
 
         <section className="dashboard-content">
 
-          {/* WELCOME CARD */}
+          {/* =================================================
+              WELCOME
+          ================================================= */}
 
           <div className="welcome-card">
 
@@ -335,12 +434,13 @@ const sprintName =
               </span>
 
               <h2>
-                Manage your sprint with intelligence.
+                Welcome back,{' '}
+                {user.name || 'User'} 👋
               </h2>
 
               <p>
-                Track projects, manage tasks and identify
-                sprint risks before they become problems.
+                Here's a quick overview of
+                your SprintIQ workspace.
               </p>
 
             </div>
@@ -352,22 +452,33 @@ const sprintName =
 
           </div>
 
-          {/* STATISTICS */}
+          {/* =================================================
+              ERROR
+          ================================================= */}
+
+          {error && (
+            <div className="dashboard-error">
+              {error}
+            </div>
+          )}
+
+          {/* =================================================
+              OVERVIEW STATS
+          ================================================= */}
 
           <div className="stats-section">
 
             <div className="section-heading">
 
               <div>
-
                 <h2>
-                  Sprint Statistics
+                  Workspace Overview
                 </h2>
 
                 <p>
-                  Current task progress for {sprintName}
+                  Everything happening across
+                  your workspace.
                 </p>
-
               </div>
 
             </div>
@@ -375,78 +486,94 @@ const sprintName =
             {loading ? (
 
               <div className="dashboard-loading">
-                Loading sprint statistics...
-              </div>
-
-            ) : error ? (
-
-              <div className="dashboard-error">
-                {error}
+                Loading workspace...
               </div>
 
             ) : (
 
               <div className="stats-grid">
 
+                {/* PROJECTS */}
+
                 <div className="stat-card">
 
                   <div className="stat-icon total">
-                    <ListChecks size={24} />
+                    <FolderKanban
+                      size={24}
+                    />
                   </div>
 
                   <div>
-                    <span>Total Tasks</span>
+                    <span>
+                      Projects
+                    </span>
 
                     <strong>
-                      {stats.totalTasks ?? 0}
+                      {projects.length}
                     </strong>
                   </div>
 
                 </div>
 
-                <div className="stat-card">
-
-                  <div className="stat-icon todo">
-                    <Circle size={24} />
-                  </div>
-
-                  <div>
-                    <span>To Do</span>
-
-                    <strong>
-                      {stats.todoTasks ?? 0}
-                    </strong>
-                  </div>
-
-                </div>
+                {/* MEMBERS */}
 
                 <div className="stat-card">
 
                   <div className="stat-icon progress">
-                    <Clock3 size={24} />
+                    <Users size={24} />
                   </div>
 
                   <div>
-                    <span>In Progress</span>
+                    <span>
+                      Members
+                    </span>
 
                     <strong>
-                      {stats.inProgressTasks ?? 0}
+                      {users.length}
                     </strong>
                   </div>
 
                 </div>
 
+                {/* SPRINTS */}
+
                 <div className="stat-card">
 
-                  <div className="stat-icon completed">
-                    <CheckCircle2 size={24} />
+                  <div className="stat-icon todo">
+                    <CalendarDays
+                      size={24}
+                    />
                   </div>
 
                   <div>
-                    <span>Completed</span>
+                    <span>
+                      Sprints
+                    </span>
 
                     <strong>
-                      {stats.completedTasks ?? 0}
+                      {sprints.length}
+                    </strong>
+                  </div>
+
+                </div>
+
+                {/* TASKS */}
+
+                <div className="stat-card">
+
+                  <div className="stat-icon completed">
+                    <ListTodo
+                      size={24}
+                    />
+                  </div>
+
+                  <div>
+                    <span>
+                      Tasks
+                    </span>
+
+                    <strong>
+                      {totalTasks}
                     </strong>
                   </div>
 
@@ -458,133 +585,843 @@ const sprintName =
 
           </div>
 
-          {/* AI RISK */}
+          {/* =================================================
+              MAIN DASHBOARD GRID
+          ================================================= */}
 
-          <div className="dashboard-ai-section">
+          {!loading && (
 
-            <div className="section-heading">
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'minmax(0, 2fr) minmax(280px, 1fr)',
+                gap: '24px',
+                marginTop: '24px',
+              }}
+            >
 
-              <div>
-                <h2>
-                  AI Sprint Risk
-                </h2>
+              {/* =============================================
+                  PROJECTS
+              ============================================= */}
 
-                <p>
-                  Intelligent analysis for {sprintName}
-                </p>
+              <div className="settings-card">
+
+                <div className="settings-card-header">
+
+                  <div className="settings-card-icon">
+                    <FolderKanban
+                      size={22}
+                    />
+                  </div>
+
+                  <div>
+                    <h3>
+                      Your Projects
+                    </h3>
+
+                    <p>
+                      Overview of your projects
+                    </p>
+                  </div>
+
+                  <Link
+                    to="/projects"
+                    style={{
+                      marginLeft: 'auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      textDecoration:
+                        'none',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#4f46e5',
+                    }}
+                  >
+                    View All
+                    <ArrowRight
+                      size={15}
+                    />
+                  </Link>
+
+                </div>
+
+                <div
+                  style={{
+                    marginTop: '18px',
+                    display: 'flex',
+                    flexDirection:
+                      'column',
+                    gap: '12px',
+                  }}
+                >
+
+                  {projects.length === 0 ? (
+
+                    <div
+                      style={{
+                        padding: '25px',
+                        textAlign: 'center',
+                        color: '#64748b',
+                      }}
+                    >
+                      No projects available.
+                    </div>
+
+                  ) : (
+
+                    projects
+                      .slice(0, 5)
+                      .map((project) => {
+
+                        const projectSprints =
+                          getProjectSprints(
+                            project.id
+                          )
+
+                        const projectTasks =
+                          getProjectTasks(
+                            project.id
+                          )
+
+                        const projectMembers =
+                          getProjectMembers(
+                            project
+                          )
+
+                        const projectCompleted =
+                          projectTasks.filter(
+                            (task) =>
+                              task.status ===
+                              'DONE'
+                          ).length
+
+                        const projectCompletion =
+                          projectTasks.length ===
+                          0
+                            ? 0
+                            : Math.round(
+                                (projectCompleted *
+                                  100) /
+                                  projectTasks.length
+                              )
+
+                        return (
+
+                          <div
+                            key={project.id}
+                            onClick={() =>
+                              navigate(
+                                `/sprints?projectId=${project.id}`
+                              )
+                            }
+                            style={{
+                              border:
+                                '1px solid #e2e8f0',
+                              borderRadius:
+                                '10px',
+                              padding:
+                                '16px',
+                              cursor:
+                                'pointer',
+                              background:
+                                'white',
+                            }}
+                          >
+
+                            <div
+                              style={{
+                                display:
+                                  'flex',
+                                justifyContent:
+                                  'space-between',
+                                alignItems:
+                                  'center',
+                              }}
+                            >
+
+                              <div>
+
+                                <h4
+                                  style={{
+                                    margin:
+                                      '0 0 5px',
+                                  }}
+                                >
+                                  {project.name}
+                                </h4>
+
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    fontSize:
+                                      '13px',
+                                    color:
+                                      '#64748b',
+                                  }}
+                                >
+                                  {
+                                    project.description ||
+                                    'No description'
+                                  }
+                                </p>
+
+                              </div>
+
+                              <ArrowRight
+                                size={18}
+                              />
+
+                            </div>
+
+                            <div
+                              style={{
+                                display:
+                                  'flex',
+                                gap: '18px',
+                                marginTop:
+                                  '14px',
+                                fontSize:
+                                  '13px',
+                                color:
+                                  '#64748b',
+                              }}
+                            >
+
+                              <span>
+                                <Users
+                                  size={14}
+                                  style={{
+                                    verticalAlign:
+                                      'middle',
+                                    marginRight:
+                                      '4px',
+                                  }}
+                                />
+                                {
+                                  projectMembers.length
+                                }{' '}
+                                members
+                              </span>
+
+                              <span>
+                                <CalendarDays
+                                  size={14}
+                                  style={{
+                                    verticalAlign:
+                                      'middle',
+                                    marginRight:
+                                      '4px',
+                                  }}
+                                />
+                                {
+                                  projectSprints.length
+                                }{' '}
+                                sprints
+                              </span>
+
+                              <span>
+                                <ListTodo
+                                  size={14}
+                                  style={{
+                                    verticalAlign:
+                                      'middle',
+                                    marginRight:
+                                      '4px',
+                                  }}
+                                />
+                                {
+                                  projectTasks.length
+                                }{' '}
+                                tasks
+                              </span>
+
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop:
+                                  '14px',
+                              }}
+                            >
+
+                              <div
+                                style={{
+                                  display:
+                                    'flex',
+                                  justifyContent:
+                                    'space-between',
+                                  marginBottom:
+                                    '6px',
+                                  fontSize:
+                                    '12px',
+                                  color:
+                                    '#64748b',
+                                }}
+                              >
+
+                                <span>
+                                  Task Progress
+                                </span>
+
+                                <strong>
+                                  {
+                                    projectCompletion
+                                  }%
+                                </strong>
+
+                              </div>
+
+                              <div
+                                style={{
+                                  width:
+                                    '100%',
+                                  height:
+                                    '7px',
+                                  background:
+                                    '#e5e7eb',
+                                  borderRadius:
+                                    '999px',
+                                  overflow:
+                                    'hidden',
+                                }}
+                              >
+
+                                <div
+                                  style={{
+                                    width:
+                                      `${projectCompletion}%`,
+                                    height:
+                                      '100%',
+                                    background:
+                                      '#4f46e5',
+                                    borderRadius:
+                                      '999px',
+                                  }}
+                                />
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                        )
+                      })
+
+                  )}
+
+                </div>
+
               </div>
 
-              <button
-                type="button"
-                className="ai-view-button"
-                onClick={() =>
-                  navigate(
-                    `/ai-insights?sprintId=${sprintId}`
-                  )
-                }
-              >
-                View AI Insights
-                <ArrowRight size={16} />
-              </button>
+              {/* =============================================
+                  QUICK ACTIONS
+              ============================================= */}
 
-            </div>
+              <div className="settings-card">
 
-            {aiLoading ? (
+                <div className="settings-card-header">
 
-              <div className="ai-dashboard-loading">
-
-                <RefreshCw
-                  size={20}
-                  className="ai-loading-icon"
-                />
-
-                <span>
-                  Generating AI analysis...
-                </span>
-
-              </div>
-
-            ) : aiError ? (
-
-              <div className="dashboard-error">
-                {aiError}
-              </div>
-
-            ) : aiPrediction ? (
-
-              <div
-                className={`dashboard-ai-card ${getRiskClass(
-                  aiPrediction.risk
-                )}`}
-              >
-
-                <div className="dashboard-ai-risk">
-
-                  <div className="dashboard-ai-icon">
-                    {getRiskIcon(
-                      aiPrediction.risk
-                    )}
+                  <div className="settings-card-icon">
+                    <Plus size={22} />
                   </div>
 
                   <div>
 
-                    <span>
-                      AI PREDICTED RISK
-                    </span>
-
                     <h3>
-                      {aiPrediction.risk}
+                      Quick Actions
                     </h3>
 
                     <p>
-                      {getRiskMessage(
-                        aiPrediction.risk
-                      )}
+                      Manage your workspace
                     </p>
 
                   </div>
 
                 </div>
 
-                <div className="dashboard-ai-metrics">
+                <div
+                  style={{
+                    display:
+                      'flex',
+                    flexDirection:
+                      'column',
+                    gap: '10px',
+                    marginTop:
+                      '18px',
+                  }}
+                >
 
-                  <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        '/projects'
+                      )
+                    }
+                    style={{
+                      display:
+                        'flex',
+                      alignItems:
+                        'center',
+                      gap: '10px',
+                      padding:
+                        '13px',
+                      border:
+                        '1px solid #e2e8f0',
+                      borderRadius:
+                        '8px',
+                      background:
+                        'white',
+                      cursor:
+                        'pointer',
+                      textAlign:
+                        'left',
+                      fontWeight:
+                        '600',
+                    }}
+                  >
+
+                    <FolderKanban
+                      size={18}
+                    />
+
                     <span>
-                      Confidence
+                      View Projects
                     </span>
 
-                    <strong>
-                      {confidencePercentage}%
-                    </strong>
-                  </div>
+                    <ArrowRight
+                      size={16}
+                      style={{
+                        marginLeft:
+                          'auto',
+                      }}
+                    />
 
-                  <div>
+                  </button>
+
+                  {user.role ===
+                    'ADMIN' && (
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(
+                          '/settings'
+                        )
+                      }
+                      style={{
+                        display:
+                          'flex',
+                        alignItems:
+                          'center',
+                        gap: '10px',
+                        padding:
+                          '13px',
+                        border:
+                          '1px solid #e2e8f0',
+                        borderRadius:
+                          '8px',
+                        background:
+                          'white',
+                        cursor:
+                          'pointer',
+                        textAlign:
+                          'left',
+                        fontWeight:
+                          '600',
+                      }}
+                    >
+
+                      <UserPlus
+                        size={18}
+                      />
+
+                      <span>
+                        Manage Members
+                      </span>
+
+                      <ArrowRight
+                        size={16}
+                        style={{
+                          marginLeft:
+                            'auto',
+                        }}
+                      />
+
+                    </button>
+
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        '/sprints'
+                      )
+                    }
+                    style={{
+                      display:
+                        'flex',
+                      alignItems:
+                        'center',
+                      gap: '10px',
+                      padding:
+                        '13px',
+                      border:
+                        '1px solid #e2e8f0',
+                      borderRadius:
+                        '8px',
+                      background:
+                        'white',
+                      cursor:
+                        'pointer',
+                      textAlign:
+                        'left',
+                      fontWeight:
+                        '600',
+                    }}
+                  >
+
+                    <CalendarDays
+                      size={18}
+                    />
+
                     <span>
-                      Completion
+                      View Sprints
                     </span>
 
-                    <strong>
-                      {aiPrediction.completionRate}%
-                    </strong>
-                  </div>
+                    <ArrowRight
+                      size={16}
+                      style={{
+                        marginLeft:
+                          'auto',
+                      }}
+                    />
 
-                  <div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        '/tasks'
+                      )
+                    }
+                    style={{
+                      display:
+                        'flex',
+                      alignItems:
+                        'center',
+                      gap: '10px',
+                      padding:
+                        '13px',
+                      border:
+                        '1px solid #e2e8f0',
+                      borderRadius:
+                        '8px',
+                      background:
+                        'white',
+                      cursor:
+                        'pointer',
+                      textAlign:
+                        'left',
+                      fontWeight:
+                        '600',
+                    }}
+                  >
+
+                    <ListTodo
+                      size={18}
+                    />
+
                     <span>
-                      Days Left
+                      View Tasks
                     </span>
 
-                    <strong>
-                      {aiPrediction.daysRemaining}
-                    </strong>
-                  </div>
+                    <ArrowRight
+                      size={16}
+                      style={{
+                        marginLeft:
+                          'auto',
+                      }}
+                    />
+
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        '/ai-insights'
+                      )
+                    }
+                    style={{
+                      display:
+                        'flex',
+                      alignItems:
+                        'center',
+                      gap: '10px',
+                      padding:
+                        '13px',
+                        border:
+                          '1px solid #e2e8f0',
+                        borderRadius:
+                          '8px',
+                        background:
+                          'white',
+                        cursor:
+                          'pointer',
+                        textAlign:
+                          'left',
+                        fontWeight:
+                          '600',
+                    }}
+                  >
+
+                    <BrainCircuit
+                      size={18}
+                    />
+
+                    <span>
+                      AI Insights
+                    </span>
+
+                    <ArrowRight
+                      size={16}
+                      style={{
+                        marginLeft:
+                          'auto',
+                      }}
+                    />
+
+                  </button>
 
                 </div>
 
               </div>
 
-            ) : null}
+            </div>
 
-          </div>
+          )}
+
+          {/* =================================================
+              TASK PROGRESS
+          ================================================= */}
+
+          {!loading && (
+
+            <div
+              className="settings-card"
+              style={{
+                marginTop: '24px',
+              }}
+            >
+
+              <div className="settings-card-header">
+
+                <div className="settings-card-icon">
+                  <CheckCircle2
+                    size={22}
+                  />
+                </div>
+
+                <div>
+                  <h3>
+                    Task Progress
+                  </h3>
+
+                  <p>
+                    Overall workspace completion
+                  </p>
+                </div>
+
+              </div>
+
+              <div
+                style={{
+                  marginTop: '20px',
+                }}
+              >
+
+                <div
+                  style={{
+                    display:
+                      'flex',
+                    justifyContent:
+                      'space-between',
+                    alignItems:
+                      'center',
+                    marginBottom:
+                      '9px',
+                  }}
+                >
+
+                  <span
+                    style={{
+                      color:
+                        '#64748b',
+                      fontSize:
+                        '14px',
+                    }}
+                  >
+                    Completed{' '}
+                    {completedTasks} of{' '}
+                    {totalTasks} tasks
+                  </span>
+
+                  <strong>
+                    {
+                      completionPercentage
+                    }%
+                  </strong>
+
+                </div>
+
+                <div
+                  style={{
+                    width:
+                      '100%',
+                    height:
+                      '11px',
+                    background:
+                      '#e5e7eb',
+                    borderRadius:
+                      '999px',
+                    overflow:
+                      'hidden',
+                  }}
+                >
+
+                  <div
+                    style={{
+                      width:
+                        `${completionPercentage}%`,
+                      height:
+                        '100%',
+                      background:
+                        '#4f46e5',
+                      borderRadius:
+                        '999px',
+                      transition:
+                        'width 0.3s ease',
+                    }}
+                  />
+
+                </div>
+
+              </div>
+
+              <div
+                style={{
+                  display:
+                    'grid',
+                  gridTemplateColumns:
+                    'repeat(3, 1fr)',
+                  gap:
+                    '12px',
+                  marginTop:
+                    '20px',
+                }}
+              >
+
+                <div
+                  style={{
+                    padding:
+                      '13px',
+                    background:
+                      '#f8fafc',
+                    borderRadius:
+                      '8px',
+                  }}
+                >
+
+                  <span
+                    style={{
+                      display:
+                        'block',
+                      fontSize:
+                        '12px',
+                      color:
+                        '#64748b',
+                    }}
+                  >
+                    To Do
+                  </span>
+
+                  <strong>
+                    {todoTasks}
+                  </strong>
+
+                </div>
+
+                <div
+                  style={{
+                    padding:
+                      '13px',
+                    background:
+                      '#f8fafc',
+                    borderRadius:
+                      '8px',
+                  }}
+                >
+
+                  <span
+                    style={{
+                      display:
+                        'block',
+                      fontSize:
+                        '12px',
+                      color:
+                        '#64748b',
+                    }}
+                  >
+                    In Progress
+                  </span>
+
+                  <strong>
+                    {inProgressTasks}
+                  </strong>
+
+                </div>
+
+                <div
+                  style={{
+                    padding:
+                      '13px',
+                    background:
+                      '#f8fafc',
+                    borderRadius:
+                      '8px',
+                  }}
+                >
+
+                  <span
+                    style={{
+                      display:
+                        'block',
+                      fontSize:
+                        '12px',
+                      color:
+                        '#64748b',
+                    }}
+                  >
+                    Completed
+                  </span>
+
+                  <strong>
+                    {completedTasks}
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          )}
 
         </section>
 

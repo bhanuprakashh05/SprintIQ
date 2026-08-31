@@ -12,16 +12,18 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import java.util.List;
-
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter =
+                jwtAuthenticationFilter;
     }
 
     @Bean
@@ -30,13 +32,18 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http)
             throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
 
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors ->
+                        cors.configurationSource(
+                                corsConfigurationSource()
+                        )
+                )
 
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
@@ -46,13 +53,75 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // Allow CORS preflight requests
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // CORS preflight
+                        .requestMatchers(
+                                HttpMethod.OPTIONS,
+                                "/**"
+                        ).permitAll()
 
-                        // Authentication endpoints
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // Login/Register
+                        .requestMatchers(
+                                "/api/auth/**"
+                        ).permitAll()
 
-                        // Everything else requires JWT
+                        // Project management
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/projects/**"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/projects/**"
+                        ).hasRole("ADMIN")
+
+                        // Project members
+                        // Project member management
+
+.requestMatchers(
+        HttpMethod.POST,
+        "/api/projects/*/members/**"
+).hasRole("ADMIN")
+
+.requestMatchers(
+        HttpMethod.DELETE,
+        "/api/projects/*/members/**"
+).hasRole("ADMIN")
+
+.requestMatchers(
+        HttpMethod.GET,
+        "/api/projects/*/members/**"
+).authenticated()
+
+                        // Anyone authenticated can view projects
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/projects/**"
+                        ).authenticated()
+
+                        // Users can be viewed by authenticated users
+                        // ADMIN can create member accounts
+.requestMatchers(
+        HttpMethod.POST,
+        "/api/users/members"
+).hasRole("ADMIN")
+
+// Other user information can be viewed by authenticated users
+.requestMatchers(
+        "/api/users/**"
+).authenticated()
+                        // Task management
+.requestMatchers(
+        HttpMethod.DELETE,
+        "/api/tasks/**"
+).hasRole("ADMIN")
+// Sprint deletion - ADMIN only
+.requestMatchers(
+        HttpMethod.DELETE,
+        "/api/sprints/**"
+).hasRole("ADMIN")
+
+                        // Everything else requires login
                         .anyRequest().authenticated()
                 )
 
@@ -67,7 +136,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration configuration = new CorsConfiguration();
+        CorsConfiguration configuration =
+                new CorsConfiguration();
 
         configuration.setAllowedOrigins(
                 List.of("http://localhost:5173")
@@ -78,6 +148,7 @@ public class SecurityConfig {
                         "GET",
                         "POST",
                         "PUT",
+                        "PATCH",
                         "DELETE",
                         "OPTIONS"
                 )
@@ -99,7 +170,10 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
 
         return source;
     }

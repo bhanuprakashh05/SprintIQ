@@ -1,11 +1,13 @@
 package com.sprintiq.controller;
 
 import com.sprintiq.entity.Project;
+import com.sprintiq.entity.User;
 import com.sprintiq.service.ProjectService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -13,13 +15,17 @@ public class ProjectController {
 
     private final ProjectService projectService;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(
+            ProjectService projectService) {
+
         this.projectService = projectService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Project createProject(@RequestBody Project project) {
+    public Project createProject(
+            @RequestBody Project project) {
+
         return projectService.createProject(
                 project.getName(),
                 project.getDescription()
@@ -32,13 +38,53 @@ public class ProjectController {
     }
 
     @GetMapping("/{id}")
-    public Project getProject(@PathVariable Long id) {
+    public Project getProject(
+            @PathVariable Long id) {
+
         return projectService.getProject(id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteProject(@PathVariable Long id) {
+    public void deleteProject(
+            @PathVariable Long id) {
+
         projectService.deleteProject(id);
+    }
+
+    // ================================
+    // TEAM MEMBERS
+    // ================================
+
+    @GetMapping("/{projectId}/members")
+    public Set<User> getProjectMembers(
+            @PathVariable Long projectId) {
+
+        return projectService.getProjectMembers(
+                projectId
+        );
+    }
+
+    @PostMapping("/{projectId}/members/{userId}")
+    public Project addMember(
+            @PathVariable Long projectId,
+            @PathVariable Long userId) {
+
+        return projectService.addMember(
+                projectId,
+                userId
+        );
+    }
+
+    @DeleteMapping("/{projectId}/members/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeMember(
+            @PathVariable Long projectId,
+            @PathVariable Long userId) {
+
+        projectService.removeMember(
+                projectId,
+                userId
+        );
     }
 }
