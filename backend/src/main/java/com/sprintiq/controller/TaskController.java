@@ -36,9 +36,7 @@ public class TaskController {
                 authentication.getName();
 
         TaskStatus status =
-                TaskStatus.valueOf(
-                        request.status()
-                );
+                TaskStatus.valueOf(request.status());
 
         Task task = taskService.createTask(
                 request.title(),
@@ -55,13 +53,18 @@ public class TaskController {
     }
 
     // ==========================================
-    // GET ALL TASKS
+    // GET ALL ACCESSIBLE TASKS
     // ==========================================
 
     @GetMapping
-    public List<TaskResponse> getAllTasks() {
+    public List<TaskResponse> getAllTasks(
+            Authentication authentication) {
 
-        return taskService.getAllTasks()
+        String currentUserEmail =
+                authentication.getName();
+
+        return taskService
+                .getAllTasks(currentUserEmail)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -121,9 +124,7 @@ public class TaskController {
                 authentication.getName();
 
         TaskStatus status =
-                TaskStatus.valueOf(
-                        request.status()
-                );
+                TaskStatus.valueOf(request.status());
 
         Task task =
                 taskService.updateTask(

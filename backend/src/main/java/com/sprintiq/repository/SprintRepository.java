@@ -10,6 +10,22 @@ import java.util.List;
 
 public interface SprintRepository extends JpaRepository<Sprint, Long> {
 
+    @Query("""
+        SELECT s
+        FROM Sprint s
+        WHERE s.project.owner.email = :email
+           OR EXISTS (
+                SELECT m
+                FROM s.project.members m
+                WHERE m.email = :email
+           )
+        """)
+    List<Sprint> findAccessibleSprints(
+            @Param("email") String email
+    );
+
     @Query("SELECT t FROM Task t WHERE t.sprint.id = :sprintId")
-    List<Task> findTasksBySprintId(@Param("sprintId") Long sprintId);
+    List<Task> findTasksBySprintId(
+            @Param("sprintId") Long sprintId
+    );
 }

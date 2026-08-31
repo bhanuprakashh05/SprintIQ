@@ -22,16 +22,21 @@ public class AuthController {
         this.authService = authService;
     }
 
+    // ==========================================
+    // CREATE ADMIN ACCOUNT
+    // ==========================================
+
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(
             @Valid @RequestBody RegisterRequest request) {
 
-        User user = authService.register(
-                request.name(),
-                request.email(),
-                request.password()
-        );
+        User user =
+                authService.register(
+                        request.name(),
+                        request.email(),
+                        request.password()
+                );
 
         return new UserResponse(
                 user.getId(),
@@ -41,16 +46,24 @@ public class AuthController {
         );
     }
 
+    // ==========================================
+    // LOGIN
+    // ==========================================
+
     @PostMapping("/login")
     public LoginResponse login(
             @RequestBody LoginRequest request) {
 
-        String token = authService.login(
-                request.email(),
-                request.password()
-        );
+        String token =
+                authService.login(
+                        request.email(),
+                        request.password()
+                );
 
-        User user = authService.findByEmail(request.email());
+        User user =
+                authService.findByEmail(
+                        request.email()
+                );
 
         return new LoginResponse(
                 user.getId(),
@@ -61,18 +74,34 @@ public class AuthController {
         );
     }
 
+    // ==========================================
+    // REGISTER REQUEST
+    // ==========================================
+
     public record RegisterRequest(
 
-            @NotBlank(message = "Name is required")
+            @NotBlank(
+                    message = "Name is required"
+            )
             String name,
 
-            @NotBlank(message = "Email is required")
-            @Email(message = "Invalid email")
+            @NotBlank(
+                    message = "Email is required"
+            )
+            @Email(
+                    message = "Invalid email"
+            )
             String email,
 
-            @NotBlank(message = "Password is required")
-            @Size(min = 6, message = "Password must contain at least 6 characters")
+            @NotBlank(
+                    message = "Password is required"
+            )
+            @Size(
+                    min = 6,
+                    message = "Password must contain at least 6 characters"
+            )
             String password
+
     ) {
     }
 }

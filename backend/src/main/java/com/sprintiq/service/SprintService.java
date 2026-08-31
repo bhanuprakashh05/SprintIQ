@@ -32,9 +32,11 @@ public class SprintService {
             String status,
             Long projectId) {
 
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() ->
-                        new RuntimeException("Project not found"));
+        Project project =
+                projectRepository.findById(projectId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Project not found"));
 
         Sprint sprint = new Sprint(
                 name,
@@ -47,20 +49,28 @@ public class SprintService {
         return sprintRepository.save(sprint);
     }
 
-    public List<Sprint> getAllSprints() {
-        return sprintRepository.findAll();
+    public List<Sprint> getAllSprints(
+            String currentUserEmail) {
+
+        return sprintRepository.findAccessibleSprints(
+                currentUserEmail
+        );
     }
 
     public Sprint getSprint(Long id) {
+
         return sprintRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Sprint not found"));
+                        new RuntimeException(
+                                "Sprint not found"));
     }
 
     public int getSprintProgress(Long sprintId) {
 
         List<Task> tasks =
-                sprintRepository.findTasksBySprintId(sprintId);
+                sprintRepository.findTasksBySprintId(
+                        sprintId
+                );
 
         if (tasks.isEmpty()) {
             return 0;
@@ -75,35 +85,40 @@ public class SprintService {
 
         return (int) (
                 (completedTasks * 100) /
-                tasks.size()
+                        tasks.size()
         );
     }
 
     public void deleteSprint(Long id) {
         sprintRepository.deleteById(id);
     }
+
     public Sprint updateSprint(
-        Long id,
-        String name,
-        LocalDate startDate,
-        LocalDate endDate,
-        String status,
-        Long projectId) {
+            Long id,
+            String name,
+            LocalDate startDate,
+            LocalDate endDate,
+            String status,
+            Long projectId) {
 
-    Sprint sprint = sprintRepository.findById(id)
-            .orElseThrow(() ->
-                    new RuntimeException("Sprint not found"));
+        Sprint sprint =
+                sprintRepository.findById(id)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Sprint not found"));
 
-    Project project = projectRepository.findById(projectId)
-            .orElseThrow(() ->
-                    new RuntimeException("Project not found"));
+        Project project =
+                projectRepository.findById(projectId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Project not found"));
 
-    sprint.setName(name);
-    sprint.setStartDate(startDate);
-    sprint.setEndDate(endDate);
-    sprint.setStatus(status);
-    sprint.setProject(project);
+        sprint.setName(name);
+        sprint.setStartDate(startDate);
+        sprint.setEndDate(endDate);
+        sprint.setStatus(status);
+        sprint.setProject(project);
 
-    return sprintRepository.save(sprint);
-}
+        return sprintRepository.save(sprint);
+    }
 }

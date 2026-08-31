@@ -14,13 +14,16 @@ public class SprintController {
 
     private final SprintService sprintService;
 
-    public SprintController(SprintService sprintService) {
+    public SprintController(
+            SprintService sprintService) {
+
         this.sprintService = sprintService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Sprint createSprint(@RequestBody SprintRequest request) {
+    public Sprint createSprint(
+            @RequestBody SprintRequest request) {
 
         return sprintService.createSprint(
                 request.name(),
@@ -32,12 +35,18 @@ public class SprintController {
     }
 
     @GetMapping
-    public List<Sprint> getAllSprints() {
-        return sprintService.getAllSprints();
+    public List<Sprint> getAllSprints(
+            java.security.Principal principal) {
+
+        return sprintService.getAllSprints(
+                principal.getName()
+        );
     }
 
     @GetMapping("/{id}")
-    public Sprint getSprint(@PathVariable Long id) {
+    public Sprint getSprint(
+            @PathVariable Long id) {
+
         return sprintService.getSprint(id);
     }
 
@@ -65,7 +74,9 @@ public class SprintController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteSprint(@PathVariable Long id) {
+    public void deleteSprint(
+            @PathVariable Long id) {
+
         sprintService.deleteSprint(id);
     }
 

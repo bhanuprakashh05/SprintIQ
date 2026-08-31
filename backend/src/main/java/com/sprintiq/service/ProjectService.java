@@ -1,3 +1,4 @@
+// ProjectService.java
 package com.sprintiq.service;
 
 import com.sprintiq.entity.Project;
@@ -6,6 +7,7 @@ import com.sprintiq.repository.ProjectRepository;
 import com.sprintiq.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -23,67 +25,125 @@ public class ProjectService {
         this.userRepository = userRepository;
     }
 
+    // ==========================================
+    // CREATE PROJECT
+    // ==========================================
+
     public Project createProject(
             String name,
-            String description) {
+            String description,
+            String ownerEmail) {
+
+        User owner =
+                userRepository.findByEmail(ownerEmail)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "User not found"));
 
         Project project =
-                new Project(name, description);
+                new Project(
+                        name,
+                        description,
+                        owner
+                );
 
         return projectRepository.save(project);
     }
 
-    public List<Project> getAllProjects() {
-        return projectRepository.findAll();
+    // ==========================================
+    // GET PROJECTS ACCESSIBLE TO USER
+    // ==========================================
+
+    public List<Project> getProjectsForUser(
+            String email) {
+
+        Set<Project> accessibleProjects =
+                new LinkedHashSet<>();
+
+        accessibleProjects.addAll(
+                projectRepository
+                        .findByOwnerEmail(email)
+        );
+
+        accessibleProjects.addAll(
+                projectRepository
+                        .findByMembersEmail(email)
+        );
+
+        return accessibleProjects.stream().toList();
     }
 
+    // ==========================================
+    // GET PROJECT
+    // ==========================================
+
     public Project getProject(Long id) {
+
         return projectRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException(
                                 "Project not found"));
     }
 
+    // ==========================================
+    // DELETE PROJECT
+    // ==========================================
+
     public void deleteProject(Long id) {
         projectRepository.deleteById(id);
     }
 
-    // Get all team members of a project
-    public Set<User> getProjectMembers(Long projectId) {
+    // ==========================================
+    // TEAM MEMBERS
+    // ==========================================
 
-        Project project = getProject(projectId);
+    public Set<User> getProjectMembers(
+            Long projectId) {
+
+        Project project =
+                getProject(projectId);
 
         return project.getMembers();
     }
 
-    // Add a user to a project
+    // ==========================================
+    // ADD MEMBER
+    // ==========================================
+
     public Project addMember(
             Long projectId,
             Long userId) {
 
-        Project project = getProject(projectId);
+        Project project =
+                getProject(projectId);
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found"));
+        User user =
+                userRepository.findById(userId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "User not found"));
 
         project.addMember(user);
 
         return projectRepository.save(project);
     }
 
-    // Remove a user from a project
+    // ==========================================
+    // REMOVE MEMBER
+    // ==========================================
+
     public Project removeMember(
             Long projectId,
             Long userId) {
 
-        Project project = getProject(projectId);
+        Project project =
+                getProject(projectId);
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found"));
+        User user =
+                userRepository.findById(userId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "User not found"));
 
         project.removeMember(user);
 

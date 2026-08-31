@@ -2,63 +2,73 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BrainCircuit,
+  User,
   Mail,
   Lock,
-  LogIn,
+  UserPlus,
 } from 'lucide-react'
 import axios from 'axios'
 
-function Login() {
+function Register() {
   const navigate = useNavigate()
 
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] =
+    useState('')
+
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (event) => {
+  const handleRegister = async (event) => {
     event.preventDefault()
 
     setError('')
-    setLoading(true)
+    setSuccess('')
+
+    if (password.length < 6) {
+      setError(
+        'Password must contain at least 6 characters'
+      )
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError(
+        'Passwords do not match'
+      )
+      return
+    }
 
     try {
-      const response = await axios.post(
-        'http://localhost:8080/api/auth/login',
+      setLoading(true)
+
+      await axios.post(
+        'http://localhost:8080/api/auth/register',
         {
+          name,
           email,
           password,
         }
       )
 
-      const user = response.data
-
-      localStorage.setItem(
-        'token',
-        user.token
+      setSuccess(
+        'Admin account created successfully. Redirecting to login...'
       )
 
-      localStorage.setItem(
-        'user',
-        JSON.stringify(user)
-      )
+      setTimeout(() => {
+        navigate('/login')
+      }, 1200)
 
-      navigate('/dashboard')
     } catch (error) {
       console.error(error)
 
-      if (
-        error.response?.status === 401 ||
-        error.response?.status === 403
-      ) {
-        setError(
-          'Invalid email or password'
-        )
-      } else {
-        setError(
-          'Unable to connect to the server'
-        )
-      }
+      setError(
+        error.response?.data?.message ||
+        'Unable to create account'
+      )
     } finally {
       setLoading(false)
     }
@@ -86,16 +96,40 @@ function Login() {
         <div className="login-heading">
 
           <h2>
-            Welcome back
+            Create Account
           </h2>
 
           <p>
-            Sign in to continue to SprintIQ
+            Create your SprintIQ Admin account
           </p>
 
         </div>
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleRegister}>
+
+          <div className="form-group">
+
+            <label>
+              Name
+            </label>
+
+            <div className="input-wrapper">
+
+              <User size={18} />
+
+              <input
+                type="text"
+                placeholder="Enter your name"
+                value={name}
+                onChange={(event) =>
+                  setName(event.target.value)
+                }
+                required
+              />
+
+            </div>
+
+          </div>
 
           <div className="form-group">
 
@@ -133,10 +167,36 @@ function Login() {
 
               <input
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Minimum 6 characters"
                 value={password}
                 onChange={(event) =>
                   setPassword(event.target.value)
+                }
+                required
+              />
+
+            </div>
+
+          </div>
+
+          <div className="form-group">
+
+            <label>
+              Confirm Password
+            </label>
+
+            <div className="input-wrapper">
+
+              <Lock size={18} />
+
+              <input
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(event) =>
+                  setConfirmPassword(
+                    event.target.value
+                  )
                 }
                 required
               />
@@ -151,17 +211,30 @@ function Login() {
             </div>
           )}
 
+          {success && (
+            <div
+              style={{
+                color: '#16a34a',
+                fontSize: '13px',
+                marginBottom: '12px',
+                textAlign: 'center',
+              }}
+            >
+              {success}
+            </div>
+          )}
+
           <button
             type="submit"
             className="login-button"
             disabled={loading}
           >
 
-            <LogIn size={18} />
+            <UserPlus size={18} />
 
             {loading
-              ? 'Signing in...'
-              : 'Sign In'}
+              ? 'Creating Account...'
+              : 'Create Admin Account'}
 
           </button>
 
@@ -180,18 +253,18 @@ function Login() {
               color: '#64748b',
             }}
           >
-            New to SprintIQ?{' '}
+            Already have an account?{' '}
           </span>
 
           <Link
-            to="/register"
+            to="/login"
             style={{
               color: '#4f46e5',
               fontWeight: '600',
               textDecoration: 'none',
             }}
           >
-            Create Account
+            Sign In
           </Link>
 
         </div>
@@ -202,4 +275,4 @@ function Login() {
   )
 }
 
-export default Login
+export default Register

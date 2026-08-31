@@ -1,3 +1,4 @@
+// ProjectController.java
 package com.sprintiq.controller;
 
 import com.sprintiq.entity.Project;
@@ -21,21 +22,39 @@ public class ProjectController {
         this.projectService = projectService;
     }
 
+    // ==========================================
+    // CREATE PROJECT
+    // ==========================================
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Project createProject(
-            @RequestBody Project project) {
+            @RequestBody Project project,
+            java.security.Principal principal) {
 
         return projectService.createProject(
                 project.getName(),
-                project.getDescription()
+                project.getDescription(),
+                principal.getName()
         );
     }
 
+    // ==========================================
+    // GET USER'S PROJECTS
+    // ==========================================
+
     @GetMapping
-    public List<Project> getAllProjects() {
-        return projectService.getAllProjects();
+    public List<Project> getAllProjects(
+            java.security.Principal principal) {
+
+        return projectService.getProjectsForUser(
+                principal.getName()
+        );
     }
+
+    // ==========================================
+    // GET PROJECT
+    // ==========================================
 
     @GetMapping("/{id}")
     public Project getProject(
@@ -43,6 +62,10 @@ public class ProjectController {
 
         return projectService.getProject(id);
     }
+
+    // ==========================================
+    // DELETE PROJECT
+    // ==========================================
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -52,9 +75,9 @@ public class ProjectController {
         projectService.deleteProject(id);
     }
 
-    // ================================
+    // ==========================================
     // TEAM MEMBERS
-    // ================================
+    // ==========================================
 
     @GetMapping("/{projectId}/members")
     public Set<User> getProjectMembers(
@@ -64,6 +87,10 @@ public class ProjectController {
                 projectId
         );
     }
+
+    // ==========================================
+    // ADD MEMBER
+    // ==========================================
 
     @PostMapping("/{projectId}/members/{userId}")
     public Project addMember(
@@ -75,6 +102,10 @@ public class ProjectController {
                 userId
         );
     }
+
+    // ==========================================
+    // REMOVE MEMBER
+    // ==========================================
 
     @DeleteMapping("/{projectId}/members/{userId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

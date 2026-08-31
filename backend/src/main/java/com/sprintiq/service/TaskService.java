@@ -128,9 +128,13 @@ public class TaskService {
     // GET ALL TASKS
     // ==========================================
 
-    public List<Task> getAllTasks() {
-        return taskRepository.findAll();
-    }
+    public List<Task> getAllTasks(
+        String currentUserEmail) {
+
+    return taskRepository.findAccessibleTasks(
+            currentUserEmail
+    );
+}
 
     // ==========================================
     // GET SINGLE TASK

@@ -1,3 +1,4 @@
+// Project.java
 package com.sprintiq.entity;
 
 import jakarta.persistence.*;
@@ -19,6 +20,11 @@ public class Project {
     @Column(length = 500)
     private String description;
 
+    // Project owner / creator
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "owner_id", nullable = true)
+    private User owner;
+
     @ManyToMany
     @JoinTable(
             name = "project_members",
@@ -30,9 +36,14 @@ public class Project {
     public Project() {
     }
 
-    public Project(String name, String description) {
+    public Project(
+            String name,
+            String description,
+            User owner) {
+
         this.name = name;
         this.description = description;
+        this.owner = owner;
     }
 
     public Long getId() {
@@ -47,6 +58,10 @@ public class Project {
         return description;
     }
 
+    public User getOwner() {
+        return owner;
+    }
+
     public Set<User> getMembers() {
         return members;
     }
@@ -57,6 +72,10 @@ public class Project {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public void setOwner(User owner) {
+        this.owner = owner;
     }
 
     public void setMembers(Set<User> members) {

@@ -12,6 +12,7 @@ import Sprints from './pages/Sprints'
 import Tasks from './pages/Tasks'
 import AIInsights from './pages/AIInsights'
 import Settings from './pages/Settings'
+import Register from './pages/Register'
 
 import './App.css'
 
@@ -159,6 +160,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        
 
 
         {/* =================================================
@@ -174,7 +176,10 @@ function App() {
             />
           }
         />
-
+<Route
+  path="/register"
+  element={<Register />}
+/>
       </Routes>
 
     </BrowserRouter>
